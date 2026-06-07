@@ -2,6 +2,7 @@ from flask import Flask, render_template, request
 import pandas as pd
 import io
 import os
+import gc
 
 app = Flask(__name__)
 
@@ -65,23 +66,29 @@ NEEDED_COLS = [
     "PackCount", "NetType", "Total Running Time",
 ]
 
-VOLTAGE_COLS = ["Line Voltage", "Line Voltage 2", "Line Voltage 3"]
-CURRENT_COLS = ["Current Amp", "Current Amp2", "Current Amp3"]
+VOLTAGE_COLS    = ["Line Voltage", "Line Voltage 2", "Line Voltage 3"]
+CURRENT_COLS    = ["Current Amp", "Current Amp2", "Current Amp3"]
 KEY_SENSOR_COLS = VOLTAGE_COLS + CURRENT_COLS + ["Pressure", "Flow Sensor", "Frequency"]
+
+# Columns that need numeric conversion (inplace)
+NUMERIC_COLS = VOLTAGE_COLS + CURRENT_COLS + [
+    "Pressure", "Flow Sensor", "Frequency", "Signal", "PackCount", "Total Running Time"
+]
 
 # ═══════════════════════════════════════════════════════
 # HELPER FUNCTIONS
 # ═══════════════════════════════════════════════════════
 
-def safe_col(df, col):
-    """Return column as numeric list, filling NaN with 0. Empty list if missing."""
-    if col not in df.columns:
-        return []
-    return pd.to_numeric(df[col], errors="coerce").fillna(0).tolist()
+def downsample_series(series, max_points=500):
+    """Downsample a Series directly — avoids making a full Python list first."""
+    if len(series) <= max_points:
+        return series.fillna(0).tolist()
+    step = len(series) // max_points
+    return series.iloc[::step].iloc[:max_points].fillna(0).tolist()
 
 
 def downsample(lst, max_points=500):
-    """Reduce list to max_points evenly spaced — keeps charts fast & RAM low."""
+    """Downsample a plain list (used for non-Series data like time_labels)."""
     if len(lst) <= max_points:
         return lst
     step = len(lst) // max_points
@@ -89,8 +96,7 @@ def downsample(lst, max_points=500):
 
 
 def col_stats(series):
-    """Return (min, max, avg) rounded to 2 dp from a pre-converted numeric Series.
-    Pass an already-numeric Series (no repeated conversion). Returns (0,0,0) if empty."""
+    """Return (min, max, avg) rounded to 2 dp. Expects pre-converted numeric Series."""
     s = series.dropna()
     if s.empty:
         return 0, 0, 0
@@ -98,12 +104,11 @@ def col_stats(series):
 
 
 def group_avg(df, cols):
-    """Average of means across a group of numeric columns. Returns 0 if none present."""
+    """Average of means across a group of numeric columns present in df."""
     present = [c for c in cols if c in df.columns]
     if not present:
         return 0
-    means = [df[c].mean() for c in present]
-    return round(sum(means) / len(means), 2)
+    return round(sum(df[c].mean() for c in present) / len(present), 2)
 
 
 def minutes_to_dhm(total_minutes):
@@ -131,19 +136,10 @@ def validate_upload(file):
     return True, "OK"
 
 
-def compute_health_score(numeric_df, error_summary, avg_voltage, avg_current):
-    """
-    0–100 health score.
-      Error severity   : up to -40 pts
-      Voltage balance  : up to -20 pts
-      Current balance  : up to -20 pts
-      Data completeness: up to -20 pts
-
-    numeric_df: DataFrame with pre-converted numeric columns.
-    """
+def compute_health_score(df, error_summary, avg_voltage, avg_current):
+    """0–100 health score based on errors, voltage, current balance, data completeness."""
     score = 100.0
 
-    # Error deductions
     for key, val in error_summary.items():
         code_str = key.split(" - ")[0]
         try:
@@ -160,32 +156,26 @@ def compute_health_score(numeric_df, error_summary, avg_voltage, avg_current):
         else:
             score -= min(4,  count * 0.5)
 
-    # Voltage balance (ideal ~415 V three-phase)
     if avg_voltage > 0:
-        deviation = abs(avg_voltage - 415) / 415
-        score -= min(20, deviation * 60)
+        score -= min(20, abs(avg_voltage - 415) / 415 * 60)
 
-    # Current balance
-    present_current = [c for c in CURRENT_COLS if c in numeric_df.columns]
+    present_current = [c for c in CURRENT_COLS if c in df.columns]
     if len(present_current) == 3:
-        means   = [numeric_df[c].mean() for c in present_current]
+        means   = [df[c].mean() for c in present_current]
         overall = sum(means) / 3
         if overall > 0:
             imbalance = max(abs(m - overall) / overall for m in means)
             score -= min(20, imbalance * 40)
 
-    # Data completeness
-    present = sum(1 for c in KEY_SENSOR_COLS + ["Signal"] if c in numeric_df.columns)
+    present = sum(1 for c in KEY_SENSOR_COLS + ["Signal"] if c in df.columns)
     score -= (1 - present / (len(KEY_SENSOR_COLS) + 1)) * 20
 
     return max(0, min(100, round(score, 1)))
 
 
-def data_quality_check(df):
+def data_quality_check(df, total):
     """Return list of quality findings for key sensor columns."""
     findings = []
-    total    = len(df)
-
     checks = [
         ("Line Voltage",   "R-Phase Voltage"),
         ("Line Voltage 2", "Y-Phase Voltage"),
@@ -198,16 +188,13 @@ def data_quality_check(df):
         ("Frequency",      "Frequency"),
         ("Signal",         "Signal Strength"),
     ]
-
     for col, label in checks:
         if col not in df.columns:
             findings.append({"field": label, "status": "missing",
                              "message": "Column not found in dataset", "pct": 0})
             continue
-        null_count = int(df[col].isna().sum())
-        null_pct   = round(null_count / total * 100, 1) if total else 0
-        zero_pct   = round(int((df[col].fillna(0) == 0).sum()) / total * 100, 1) if total else 0
-
+        null_pct = round(df[col].isna().sum() / total * 100, 1) if total else 0
+        zero_pct = round((df[col].fillna(0) == 0).sum() / total * 100, 1) if total else 0
         if null_pct > 10:
             findings.append({"field": label, "status": "warn",
                              "message": f"{null_pct}% missing values", "pct": 100 - null_pct})
@@ -217,7 +204,6 @@ def data_quality_check(df):
         else:
             findings.append({"field": label, "status": "ok",
                              "message": f"Good — {100 - null_pct}% complete", "pct": 100 - null_pct})
-
     return findings
 
 
@@ -235,7 +221,6 @@ def upload():
 
     file = request.files.get("file")
 
-    # ── Secure upload validation ───────────────────────
     ok, msg = validate_upload(file)
     if not ok:
         return render_template("index.html", upload_error=msg)
@@ -246,32 +231,34 @@ def upload():
         engine = "xlrd" if ext == ".xls" else "openpyxl"
         buf    = io.BytesIO(file.read())
 
-        # First pass — find which needed columns exist (header only)
+        # First pass — header only to check which columns exist
         header_df = pd.read_excel(buf, engine=engine, nrows=0)
         use_cols  = [c for c in NEEDED_COLS if c in header_df.columns]
+        del header_df  # free immediately
 
-        # Second pass — read only those columns, dtype=str avoids datetime crash
+        # Second pass — no dtype=str; let pandas infer native types (saves ~40% RAM)
         buf.seek(0)
-        df = pd.read_excel(buf, engine=engine, usecols=use_cols, dtype=str)
+        df = pd.read_excel(buf, engine=engine, usecols=use_cols)
+        del buf  # BytesIO no longer needed
 
     except Exception as e:
         return render_template("index.html", upload_error=f"Could not read file: {e}")
 
     total_rows = len(df)
 
-    # ── Pre-convert numeric columns once ───────────────
-    # All subsequent stat/chart work reads from numeric_df to avoid repeated conversion.
-    num_cols = VOLTAGE_COLS + CURRENT_COLS + [
-        "Pressure", "Flow Sensor", "Frequency", "Signal", "PackCount", "Total Running Time"
-    ]
-    numeric_df = df[[c for c in num_cols if c in df.columns]].apply(
-        pd.to_numeric, errors="coerce"
-    )
+    # ── Inplace numeric conversion — no second DataFrame copy ─
+    for col in NUMERIC_COLS:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # Shorthand: get column or empty Series
+    def _col(c):
+        return df[c] if c in df.columns else pd.Series(dtype=float)
 
     # ── Device information ─────────────────────────────
-    device_id  = str(df["DeviceId"].iloc[0])     if "DeviceId"      in df.columns else "—"
-    iot_hub    = str(df["IoTHubName"].iloc[0])    if "IoTHubName"    in df.columns else "—"
-    _pump_phase_raw = str(df["PumpPhaseType"].iloc[0]) if "PumpPhaseType" in df.columns else "—"
+    device_id       = str(df["DeviceId"].iloc[0])      if "DeviceId"      in df.columns else "—"
+    iot_hub         = str(df["IoTHubName"].iloc[0])     if "IoTHubName"    in df.columns else "—"
+    _pump_phase_raw = str(df["PumpPhaseType"].iloc[0])  if "PumpPhaseType" in df.columns else "—"
     pump_phase = (
         "Three Phase Pump"  if _pump_phase_raw == "1" else
         "Single Phase Pump" if _pump_phase_raw == "0" else
@@ -284,18 +271,17 @@ def upload():
         if not ts.empty:
             date_range = f"{ts.min().strftime('%d %b %Y')} → {ts.max().strftime('%d %b %Y')}"
 
-    # ── Motor start count (vectorized) ────────────────
+    # ── Motor start count ──────────────────────────────
     start_count = 0
     if "MotorRunningStatus" in df.columns:
-        raw  = df["MotorRunningStatus"].fillna(0).astype(str).str.strip().str.upper()
-        ms   = raw.isin({"1", "TRUE", "YES", "ON"})
+        raw = df["MotorRunningStatus"].fillna(0).astype(str).str.strip().str.upper()
+        ms  = raw.isin({"1", "TRUE", "YES", "ON"})
         start_count = int((~ms.shift(1, fill_value=False) & ms).sum())
 
     # ── Error summary ──────────────────────────────────
     error_summary = {}
     if "Error CondMon" in df.columns:
-        for code, count in df["Error CondMon"].value_counts().items():
-            code     = int(code)
+        for code, count in pd.to_numeric(df["Error CondMon"], errors="coerce").dropna().astype(int).value_counts().items():
             desc     = ERROR_CODES.get(code, "Unknown Error")
             severity = (
                 "critical" if code in CRITICAL_ERRORS else
@@ -316,76 +302,68 @@ def upload():
             icon = MODE_ICONS.get(code_int, "❓")
             mode_summary[desc] = {"code": code_int, "count": count, "icon": icon}
 
-    # ── Time labels ────────────────────────────────────
+    # ── Time labels (downsampled early — no full list in RAM) ──
     time_labels = []
     if "QueuedTime-IST" in df.columns:
-        time_labels = df["QueuedTime-IST"].astype(str).tolist()
+        time_labels = downsample(df["QueuedTime-IST"].astype(str).tolist())
 
-    # ── Voltage (from pre-converted numeric_df) ────────
-    def _num(col):
-        """Return numeric Series for col, or empty Series."""
-        return numeric_df[col] if col in numeric_df.columns else pd.Series(dtype=float)
+    # ── Voltage ────────────────────────────────────────
+    v1_min, v1_max, _ = col_stats(_col("Line Voltage"))
+    v2_min, v2_max, _ = col_stats(_col("Line Voltage 2"))
+    v3_min, v3_max, _ = col_stats(_col("Line Voltage 3"))
+    avg_voltage        = group_avg(df, VOLTAGE_COLS)
 
-    voltage1 = _num("Line Voltage").fillna(0).tolist()
-    voltage2 = _num("Line Voltage 2").fillna(0).tolist()
-    voltage3 = _num("Line Voltage 3").fillna(0).tolist()
-
-    v1_min, v1_max, _ = col_stats(_num("Line Voltage"))
-    v2_min, v2_max, _ = col_stats(_num("Line Voltage 2"))
-    v3_min, v3_max, _ = col_stats(_num("Line Voltage 3"))
-
-    avg_voltage = group_avg(numeric_df, VOLTAGE_COLS)
+    ds_voltage1 = downsample_series(_col("Line Voltage"))
+    ds_voltage2 = downsample_series(_col("Line Voltage 2"))
+    ds_voltage3 = downsample_series(_col("Line Voltage 3"))
 
     # ── Current ────────────────────────────────────────
-    current1 = _num("Current Amp").fillna(0).tolist()
-    current2 = _num("Current Amp2").fillna(0).tolist()
-    current3 = _num("Current Amp3").fillna(0).tolist()
+    c1_min, c1_max, _ = col_stats(_col("Current Amp"))
+    c2_min, c2_max, _ = col_stats(_col("Current Amp2"))
+    c3_min, c3_max, _ = col_stats(_col("Current Amp3"))
+    avg_current        = group_avg(df, CURRENT_COLS)
 
-    c1_min, c1_max, _ = col_stats(_num("Current Amp"))
-    c2_min, c2_max, _ = col_stats(_num("Current Amp2"))
-    c3_min, c3_max, _ = col_stats(_num("Current Amp3"))
-
-    avg_current = group_avg(numeric_df, CURRENT_COLS)
+    ds_current1 = downsample_series(_col("Current Amp"))
+    ds_current2 = downsample_series(_col("Current Amp2"))
+    ds_current3 = downsample_series(_col("Current Amp3"))
 
     # ── Process parameters ─────────────────────────────
-    pressure  = _num("Pressure").fillna(0).tolist()
-    flow      = _num("Flow Sensor").fillna(0).tolist()
-    frequency = _num("Frequency").fillna(0).tolist()
-    signal    = _num("Signal").fillna(0).tolist()
+    p_min,    p_max,    p_avg    = col_stats(_col("Pressure"))
+    f_min,    f_max,    f_avg    = col_stats(_col("Flow Sensor"))
+    freq_min, freq_max, freq_avg = col_stats(_col("Frequency"))
 
-    p_min,    p_max,    p_avg    = col_stats(_num("Pressure"))
-    f_min,    f_max,    f_avg    = col_stats(_num("Flow Sensor"))
-    freq_min, freq_max, freq_avg = col_stats(_num("Frequency"))
+    ds_pressure  = downsample_series(_col("Pressure"))
+    ds_flow      = downsample_series(_col("Flow Sensor"))
+    ds_frequency = downsample_series(_col("Frequency"))
+    ds_signal    = downsample_series(_col("Signal"))
 
-    # ── Pack count (vectorized) ────────────────────────
+    # ── Pack count ─────────────────────────────────────
     pack_count_total = 0
-    if "PackCount" in numeric_df.columns:
-        diff = numeric_df["PackCount"].diff().fillna(0)
+    if "PackCount" in df.columns:
+        diff = df["PackCount"].diff().fillna(0)
         pack_count_total = int(diff[diff > 0].sum())
-
-    pack_count_graph = _num("PackCount").fillna(0).tolist()
+    ds_pack_graph = downsample_series(_col("PackCount"))
 
     # ── Network type (vectorized) ──────────────────────
     net_4g_count = net_2g_count = 0
-    network_numeric = []
+    ds_network_numeric = []
     if "NetType" in df.columns:
-        is_4g = df["NetType"].astype(str).str.upper() == "4G"
-        net_4g_count    = int(is_4g.sum())
-        net_2g_count    = len(df) - net_4g_count
-        network_numeric = is_4g.map({True: 4, False: 2}).tolist()
+        is_4g      = df["NetType"].astype(str).str.upper() == "4G"
+        net_4g_count       = int(is_4g.sum())
+        net_2g_count       = len(df) - net_4g_count
+        ds_network_numeric = downsample(is_4g.map({True: 4, False: 2}).tolist())
 
     network_pct_4g = round(net_4g_count / max(net_4g_count + net_2g_count, 1) * 100, 1)
 
-    # ── Total running time (vectorized) ───────────────
+    # ── Total running time ─────────────────────────────
     total_runtime = 0
-    if "Total Running Time" in numeric_df.columns:
-        diff = numeric_df["Total Running Time"].diff().fillna(0)
+    if "Total Running Time" in df.columns:
+        diff = df["Total Running Time"].diff().fillna(0)
         total_runtime = float(diff[diff > 0].sum())
-
     running_time = minutes_to_dhm(total_runtime)
 
     # ── Health score ───────────────────────────────────
-    health_score = compute_health_score(numeric_df, error_summary, avg_voltage, avg_current)
+    health_score = compute_health_score(df, error_summary, avg_voltage, avg_current)
     health_label = (
         "Excellent" if health_score >= 85 else
         "Good"      if health_score >= 70 else
@@ -400,7 +378,7 @@ def upload():
     )
 
     # ── Data quality check ─────────────────────────────
-    quality_findings = data_quality_check(df)
+    quality_findings = data_quality_check(df, total_rows)
     quality_ok   = sum(1 for f in quality_findings if f["status"] == "ok")
     quality_warn = sum(1 for f in quality_findings if f["status"] == "warn")
     quality_miss = sum(1 for f in quality_findings if f["status"] == "missing")
@@ -433,20 +411,10 @@ def upload():
         summary_points.append({"type": "warning", "icon": "⚡",
             "text": f"High motor start count ({start_count}). Consider investigating frequent cycling."})
 
-    # ── Downsample chart data (max 500 pts) ───────────
-    ds_labels          = downsample(time_labels)
-    ds_voltage1        = downsample(voltage1)
-    ds_voltage2        = downsample(voltage2)
-    ds_voltage3        = downsample(voltage3)
-    ds_current1        = downsample(current1)
-    ds_current2        = downsample(current2)
-    ds_current3        = downsample(current3)
-    ds_pressure        = downsample(pressure)
-    ds_flow            = downsample(flow)
-    ds_frequency       = downsample(frequency)
-    ds_signal          = downsample(signal)
-    ds_network_numeric = downsample(network_numeric)
-    ds_pack_graph      = downsample(pack_count_graph)
+    # ── Free DataFrame before render — biggest RAM win ─
+    filename = file.filename
+    del df
+    gc.collect()
 
     # ── Render dashboard ───────────────────────────────
     return render_template(
@@ -458,7 +426,7 @@ def upload():
         pump_phase=pump_phase,
         date_range=date_range,
         total_rows=total_rows,
-        filename=file.filename,
+        filename=filename,
 
         # KPIs
         start_count=start_count,
@@ -509,7 +477,7 @@ def upload():
         network_pct_4g=network_pct_4g,
 
         # Chart data (downsampled)
-        labels=ds_labels,
+        labels=time_labels,
         voltage1=ds_voltage1, voltage2=ds_voltage2, voltage3=ds_voltage3,
         current1=ds_current1, current2=ds_current2, current3=ds_current3,
         pressure=ds_pressure, flow=ds_flow,
