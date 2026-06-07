@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taro Connect — Device Analytics Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════
+   LIGHT THEME (default)
+═══════════════════════════════════ */
+:root {
+  --bg:      #f0f4fa;
+  --surface: #ffffff;
+  --card:    #f8fafd;
+  --card2:   #f2f5fb;
+  --border:  #e2e8f2;
+  --border2: #ccd5e8;
+  --accent:  #3b7ef8;
+  --accent2: #6d28d9;
+  --gold:    #d97706;
+  --green:   #059669;
+  --red:     #dc2626;
+  --cyan:    #0891b2;
+  --purple:  #7c3aed;
+  --text:    #1e2d4a;
+  --muted:   #7a8fb0;
+}
+
+/* ═══════════════════════════════════
+   DARK THEME
+═══════════════════════════════════ */
+[data-theme="dark"] {
+  --bg:      #0b0e16;
+  --surface: #121520;
+  --card:    #181d2e;
+  --card2:   #1e243a;
+  --border:  #252d47;
+  --border2: #2f3a5a;
+  --accent:  #4f8ef7;
+  --accent2: #7c3aed;
+  --gold:    #e8a930;
+  --green:   #10d98e;
+  --red:     #f05c5c;
+  --cyan:    #22d3ee;
+  --purple:  #a78bfa;
+  --text:    #c0cfe8;
+  --muted:   #4a5a80;
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0 }
+html { scroll-behavior:smooth }
+body {
+  background: var(--bg); color: var(--text);
+  font-family:'DM Sans',sans-serif; font-size:14px;
+  min-height:100vh; transition: background 0.3s, color 0.3s;
+}
+body::before {
+  content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(ellipse 900px 500px at 20% 0%,  rgba(59,126,248,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 600px 400px at 90% 100%, rgba(109,40,217,0.03) 0%, transparent 60%);
+}
+
+/* ── PAGE LOADER ── */
+#pageLoader {
+  position:fixed; inset:0; background:var(--bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:20px;
+  z-index:99999;
+}
+.pl-ring {
+  width:72px; height:72px; border-radius:50%;
+  border:2px solid var(--border2); border-top:2px solid var(--accent);
+  animation:spin 0.9s linear infinite; position:relative;
+}
+.pl-ring::after {
+  content:''; position:absolute; inset:10px; border-radius:50%;
+  border:1px solid var(--border2); border-bottom:1px solid var(--accent2);
+  animation:spin 1.5s linear infinite reverse;
+}
+.pl-title { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:var(--text); }
+.pl-sub   { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); animation:blink 1.4s step-end infinite; }
+@keyframes spin  { to { transform:rotate(360deg) } }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.page { position:relative; z-index:1; padding-bottom:48px; }
+
+/* ── TOPBAR ── */
+.topbar {
+  background:rgba(255,255,255,0.95); backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border); padding:0 28px;
+  display:flex; align-items:center; gap:18px; height:64px;
+  position:sticky; top:0; z-index:200;
+  box-shadow:0 1px 8px rgba(59,126,248,0.06);
+  transition:background 0.3s;
+}
+[data-theme="dark"] .topbar { background:rgba(18,21,32,0.95); }
+.topbar::after {
+  content:''; position:absolute; bottom:0; left:0; right:0; height:2px;
+  background:linear-gradient(90deg, var(--accent), var(--accent2), transparent);
+  opacity:0.6;
+}
+.topbar-logo  { width:38px; height:38px; object-fit:contain; border-radius:8px; }
+.topbar-brand { flex:1; }
+.topbar-title { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; color:var(--text); letter-spacing:-0.3px; line-height:1; }
+.topbar-sub   { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; margin-top:3px; }
+.topbar-right { display:flex; align-items:center; gap:10px; }
+.sys-time {
+  font-family:'DM Mono',monospace; font-size:12px; color:var(--cyan);
+  background:rgba(8,145,178,0.07); border:1px solid rgba(8,145,178,0.18);
+  border-radius:6px; padding:4px 10px;
+}
+.back-btn {
+  background:var(--card); border:1px solid var(--border2); color:var(--text);
+  padding:7px 14px; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+  letter-spacing:1px; text-transform:uppercase; text-decoration:none;
+  cursor:pointer; border-radius:8px; transition:all 0.2s;
+}
+.back-btn:hover { border-color:var(--accent); color:var(--accent); background:rgba(59,126,248,0.05); }
+.theme-btn {
+  background:var(--card); border:1px solid var(--border2); color:var(--muted);
+  width:36px; height:36px; border-radius:8px; cursor:pointer; font-size:16px;
+  display:flex; align-items:center; justify-content:center; transition:all 0.2s;
+}
+.theme-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+/* ── INFO BAR ── */
+.info-bar {
+  background:var(--surface); border-bottom:1px solid var(--border);
+  padding:0 28px; display:flex; box-shadow:0 1px 4px rgba(0,0,0,0.03);
+}
+.info-item { flex:1; padding:12px 20px; border-right:1px solid var(--border); }
+.info-item:first-child { padding-left:0; }
+.info-item:last-child  { border-right:none; }
+.info-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
+.info-val   { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; color:var(--text); }
+.info-val.blue  { color:var(--accent); }
+.info-val.cyan  { color:var(--cyan);   }
+.info-val.green { color:var(--green);  }
+
+/* ── LAYOUT ── */
+.content { padding:28px; max-width:1600px; }
+
+.section-head { display:flex; align-items:center; gap:12px; margin-bottom:18px; margin-top:36px; }
+.section-head:first-child { margin-top:0; }
+.sh-bar   { width:3px; height:20px; background:linear-gradient(180deg,var(--accent),var(--accent2)); border-radius:2px; flex-shrink:0; }
+.sh-title { font-family:'Syne',sans-serif; font-size:17px; font-weight:700; color:var(--text); }
+.sh-line  { flex:1; height:1px; background:var(--border); }
+.sh-tag   {
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted);
+  text-transform:uppercase; background:var(--surface); border:1px solid var(--border);
+  border-radius:4px; padding:3px 8px;
+}
+
+/* ── KPI CARDS ── */
+.kpi-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; }
+@media(max-width:1100px){ .kpi-grid{grid-template-columns:repeat(3,1fr)} }
+@media(max-width:700px) { .kpi-grid{grid-template-columns:repeat(2,1fr)} }
+
+.kpi-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  padding:22px 20px; position:relative; overflow:hidden; transition:all 0.2s;
+  box-shadow:0 2px 8px rgba(0,0,0,0.04);
+}
+.kpi-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(59,126,248,0.1); border-color:var(--border2); }
+.kpi-card::after {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  border-radius:14px 14px 0 0;
+}
+.kpi-card.gold::after  { background:linear-gradient(90deg,var(--gold),#f59e0b); }
+.kpi-card.green::after { background:linear-gradient(90deg,var(--green),#10b981); }
+.kpi-card.red::after   { background:linear-gradient(90deg,var(--red),#f97316); }
+.kpi-card.cyan::after  { background:linear-gradient(90deg,var(--cyan),#6366f1); }
+.kpi-card.purple::after{ background:linear-gradient(90deg,var(--purple),var(--accent2)); }
+
+.kpi-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+.kpi-value { font-family:'Syne',sans-serif; font-size:34px; font-weight:800; color:var(--text); line-height:1; letter-spacing:-1px; }
+.kpi-unit  { font-family:'DM Sans',sans-serif; font-size:11px; color:var(--muted); margin-top:6px; }
+.kpi-icon  { position:absolute; bottom:14px; right:16px; font-size:24px; opacity:0.07; }
+
+/* ── HEALTH CARD ── */
+.health-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  padding:24px 28px; display:flex; align-items:center; gap:28px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.04); margin-bottom:16px;
+  position:relative; overflow:hidden;
+}
+.health-card::after {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:linear-gradient(90deg,var(--green),#10b981);
+}
+.health-card.health-blue::after  { background:linear-gradient(90deg,var(--accent),var(--accent2)); }
+.health-card.health-gold::after  { background:linear-gradient(90deg,var(--gold),#f59e0b); }
+.health-card.health-red::after   { background:linear-gradient(90deg,var(--red),#f97316); }
+
+.health-ring-wrap { position:relative; width:100px; height:100px; flex-shrink:0; }
+.health-ring-wrap svg { transform:rotate(-90deg); }
+.health-ring-bg   { fill:none; stroke:var(--border2); stroke-width:8; }
+.health-ring-fill { fill:none; stroke-width:8; stroke-linecap:round; transition:stroke-dashoffset 1s ease; }
+.health-ring-fill.green  { stroke:var(--green); }
+.health-ring-fill.blue   { stroke:var(--accent); }
+.health-ring-fill.gold   { stroke:var(--gold); }
+.health-ring-fill.red    { stroke:var(--red); }
+.health-center {
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+}
+.health-pct   { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:var(--text); line-height:1; }
+.health-sub   { font-family:'DM Mono',monospace; font-size:8px; color:var(--muted); letter-spacing:1px; margin-top:2px; }
+.health-info  { flex:1; }
+.health-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:var(--text); margin-bottom:6px; }
+.health-desc  { font-family:'DM Sans',sans-serif; font-size:13px; color:var(--muted); line-height:1.6; }
+.health-badge {
+  display:inline-block; margin-top:10px;
+  font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px;
+  text-transform:uppercase; padding:4px 12px; border-radius:20px; font-weight:600;
+}
+.health-badge.green  { background:rgba(5,150,105,0.1);  color:var(--green); border:1px solid rgba(5,150,105,0.2); }
+.health-badge.blue   { background:rgba(59,126,248,0.1); color:var(--accent);border:1px solid rgba(59,126,248,0.2); }
+.health-badge.gold   { background:rgba(217,119,6,0.1);  color:var(--gold);  border:1px solid rgba(217,119,6,0.2); }
+.health-badge.red    { background:rgba(220,38,38,0.1);  color:var(--red);   border:1px solid rgba(220,38,38,0.2); }
+
+/* ── EXECUTIVE SUMMARY ── */
+.summary-box {
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.03);
+}
+.summary-head {
+  background:var(--card2); border-bottom:1px solid var(--border);
+  padding:14px 20px; font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
+  color:var(--text); display:flex; align-items:center; gap:10px;
+}
+.summary-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; }
+.summary-list { padding:8px 0; }
+.summary-item {
+  display:flex; align-items:flex-start; gap:12px;
+  padding:12px 20px; border-bottom:1px solid var(--border); font-size:13px;
+}
+.summary-item:last-child { border-bottom:none; }
+.summary-icon { font-size:16px; flex-shrink:0; margin-top:1px; }
+.summary-text { color:var(--text); line-height:1.6; }
+.summary-empty { padding:20px; color:var(--muted); font-size:13px; text-align:center; }
+
+/* ── MIN/MAX CARDS ── */
+.minmax-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+@media(max-width:900px){ .minmax-grid{grid-template-columns:repeat(2,1fr)} }
+@media(max-width:600px){ .minmax-grid{grid-template-columns:1fr} }
+
+.minmax-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:16px 18px; box-shadow:0 2px 6px rgba(0,0,0,0.03); transition:all 0.2s;
+}
+.minmax-card:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(59,126,248,0.08); }
+.minmax-title { font-family:'Syne',sans-serif; font-size:12px; font-weight:700; color:var(--text); margin-bottom:12px; }
+.minmax-row   { display:flex; gap:8px; }
+.minmax-item  { flex:1; background:var(--card); border-radius:8px; padding:8px 10px; text-align:center; }
+.minmax-lbl   { font-family:'DM Mono',monospace; font-size:8px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
+.minmax-val   { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; }
+.minmax-val.mn { color:var(--cyan); }
+.minmax-val.mx { color:var(--red);  }
+.minmax-val.av { color:var(--green);}
+
+/* ── DATA QUALITY ── */
+.quality-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
+@media(max-width:700px){ .quality-grid{grid-template-columns:1fr} }
+.quality-box {
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.03);
+}
+.quality-head {
+  background:var(--card2); border-bottom:1px solid var(--border);
+  padding:14px 20px; font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
+  color:var(--text); display:flex; align-items:center; gap:10px;
+}
+.quality-stats { display:flex; gap:0; border-bottom:1px solid var(--border); }
+.qstat { flex:1; padding:12px; text-align:center; border-right:1px solid var(--border); }
+.qstat:last-child { border-right:none; }
+.qstat-val { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; }
+.qstat-val.ok   { color:var(--green); }
+.qstat-val.warn { color:var(--gold);  }
+.qstat-val.miss { color:var(--red);   }
+.qstat-lbl { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-top:3px; }
+.quality-list { padding:4px 0; }
+.qitem { display:flex; align-items:center; gap:12px; padding:10px 18px; border-bottom:1px solid var(--border); }
+.qitem:last-child { border-bottom:none; }
+.qitem-icon { font-size:14px; flex-shrink:0; }
+.qitem-field { font-family:'DM Mono',monospace; font-size:11px; color:var(--text); width:130px; flex-shrink:0; }
+.qitem-bar-wrap { flex:1; background:var(--border); border-radius:4px; height:6px; overflow:hidden; }
+.qitem-bar { height:100%; border-radius:4px; transition:width 1s ease; }
+.qitem-bar.ok   { background:var(--green); }
+.qitem-bar.warn { background:var(--gold);  }
+.qitem-bar.miss { background:var(--red);   width:100% !important; }
+.qitem-msg { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); width:160px; text-align:right; flex-shrink:0; }
+
+/* ── TABLES ── */
+.table-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:800px){ .table-grid{grid-template-columns:1fr} }
+
+.data-table-box { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.03); }
+.dtb-head {
+  background:var(--card2); border-bottom:1px solid var(--border); padding:14px 20px;
+  font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
+  color:var(--text); display:flex; align-items:center; gap:10px;
+}
+.dtb-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; }
+.dtb-dot.green { background:var(--green); }
+
+table { width:100%; border-collapse:collapse; }
+table th {
+  background:var(--card); color:var(--muted);
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase;
+  padding:10px 16px; text-align:left; border-bottom:1px solid var(--border);
+}
+table td { padding:10px 16px; border-bottom:1px solid var(--border); font-size:13px; color:var(--text); }
+table tr:last-child td { border-bottom:none; }
+table tr:hover td { background:rgba(59,126,248,0.025); }
+
+.td-count { font-family:'DM Mono',monospace; color:var(--cyan); font-size:13px; }
+.td-code  { font-family:'DM Mono',monospace; color:var(--muted); font-size:11px; }
+.sev-badge {
+  display:inline-block; font-family:'DM Mono',monospace; font-size:9px;
+  letter-spacing:1px; text-transform:uppercase; padding:3px 8px; border-radius:4px; font-weight:600;
+}
+.sev-critical { background:rgba(220,38,38,0.1);   color:var(--red);    border:1px solid rgba(220,38,38,0.2); }
+.sev-warning  { background:rgba(217,119,6,0.1);   color:var(--gold);   border:1px solid rgba(217,119,6,0.2); }
+.sev-info     { background:rgba(59,126,248,0.08); color:var(--accent); border:1px solid rgba(59,126,248,0.15); }
+.mode-badge {
+  display:inline-flex; align-items:center; gap:5px;
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:1px;
+  text-transform:uppercase; padding:3px 8px; border-radius:4px;
+  background:rgba(5,150,105,0.08); color:var(--green); border:1px solid rgba(5,150,105,0.18);
+}
+
+/* ── CHART PANELS ── */
+.chart-panel { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin-bottom:16px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.03); }
+.chart-head  { background:var(--card2); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; gap:10px; }
+.ch-indicator { width:3px; height:18px; border-radius:2px; flex-shrink:0; }
+.ch-title { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; color:var(--text); flex:1; }
+.ch-badge {
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:1.5px; color:var(--muted);
+  background:var(--surface); border:1px solid var(--border2); border-radius:4px; padding:3px 8px;
+}
+.chart-body { padding:20px; }
+.chart-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+@media(max-width:900px){ .chart-grid-2{grid-template-columns:1fr} }
+
+/* ── FOOTER ── */
+.footer {
+  background:var(--surface); border-top:1px solid var(--border);
+  padding:16px 28px; display:flex; align-items:center; justify-content:space-between; margin-top:16px;
+}
+.footer-text   { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:1px; }
+.footer-status { display:flex; align-items:center; gap:7px; font-family:'DM Mono',monospace; font-size:10px; color:var(--green); }
+.footer-status::before {
+  content:''; width:6px; height:6px; border-radius:50%; background:var(--green);
+  animation:pulse-live 2s ease-in-out infinite;
+}
+@keyframes pulse-live { 0%,100%{box-shadow:0 0 0 0 rgba(5,150,105,0.5)} 50%{box-shadow:0 0 0 5px rgba(5,150,105,0)} }
+</style>
+</head>
+<body>
+
+<div id="pageLoader">
+  <div class="pl-ring"></div>
+  <div class="pl-title">Loading Dashboard</div>
+  <div class="pl-sub">Processing telemetry data...</div>
+</div>
+
+<div class="page">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <img src="{{ url_for('static', filename='images/taroconnect.png') }}" class="topbar-logo" alt="Taro">
+    <div class="topbar-brand">
+      <div class="topbar-title">Taro Connect Analytics</div>
+      <div class="topbar-sub">Industrial IoT Device Performance Monitoring</div>
+    </div>
+    <div class="topbar-right">
+      <div class="sys-time" id="sysTime">--:--:--</div>
+      <button class="theme-btn" id="themeBtn" title="Toggle dark/light mode">🌙</button>
+      <a href="/" class="back-btn">↩ New Report</a>
+    </div>
+  </div>
+
+  <!-- INFO BAR -->
+  <div class="info-bar">
+    <div class="info-item">
+      <div class="info-label">Device ID</div>
+      <div class="info-val blue">{{ device_id }}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">IoT Hub</div>
+      <div class="info-val">{{ iot_hub }}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Pump Phase</div>
+      <div class="info-val cyan">{{ pump_phase }}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Date Range</div>
+      <div class="info-val" style="font-size:12px;">{{ date_range }}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Total Records</div>
+      <div class="info-val green">{{ total_rows }}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">Status</div>
+      <div class="info-val green">✓ Complete</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ═══ SECTION: KEY METRICS ═══ -->
+    <div class="section-head">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Key Metrics</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">Telemetry Overview</div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card gold">
+        <div class="kpi-label">Start Count</div>
+        <div class="kpi-value">{{ start_count }}</div>
+        <div class="kpi-unit">Motor Starts</div>
+        <div class="kpi-icon">⚡</div>
+      </div>
+      <div class="kpi-card cyan">
+        <div class="kpi-label">Total Running Time</div>
+        <div class="kpi-value" style="font-size:20px;letter-spacing:-0.5px;padding-top:4px;">{{ running_time }}</div>
+        <div class="kpi-unit">Cumulative Runtime</div>
+        <div class="kpi-icon">⏱</div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Pack Count</div>
+        <div class="kpi-value">{{ pack_count_total }}</div>
+        <div class="kpi-unit">Total Packets</div>
+        <div class="kpi-icon">📦</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Avg Voltage</div>
+        <div class="kpi-value">{{ avg_voltage }}</div>
+        <div class="kpi-unit">V — 3-Phase Avg</div>
+        <div class="kpi-icon">⚡</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">Avg Current</div>
+        <div class="kpi-value">{{ avg_current }}</div>
+        <div class="kpi-unit">A — 3-Phase Avg</div>
+        <div class="kpi-icon">〜</div>
+      </div>
+    </div>
+
+    <!-- ═══ SECTION: HEALTH + SUMMARY ═══ -->
+    <div class="section-head">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Device Health &amp; Executive Summary</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">Diagnostic Report</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:340px 1fr;gap:16px;margin-bottom:0;" class="health-summary-grid">
+
+      <!-- Health Score Ring -->
+      <div class="health-card health-{{ health_color }}">
+        <div class="health-ring-wrap">
+          <svg width="100" height="100" viewBox="0 0 100 100">
+            <circle class="health-ring-bg"   cx="50" cy="50" r="40"/>
+            <circle class="health-ring-fill {{ health_color }}" cx="50" cy="50" r="40"
+              stroke-dasharray="251.2"
+              stroke-dashoffset="{{ 251.2 - (251.2 * health_score / 100) }}"
+              id="healthArc"/>
+          </svg>
+          <div class="health-center">
+            <div class="health-pct">{{ health_score }}</div>
+            <div class="health-sub">/ 100</div>
+          </div>
+        </div>
+        <div class="health-info">
+          <div class="health-title">{{ health_label }}</div>
+          <div class="health-desc">Overall device condition based on errors, voltage balance, current balance &amp; data completeness.</div>
+          <div class="health-badge {{ health_color }}">{{ health_label }} Condition</div>
+        </div>
+      </div>
+
+      <!-- Executive Summary -->
+      <div class="summary-box">
+        <div class="summary-head">
+          <div class="summary-dot"></div>
+          Executive Summary — {{ filename }}
+        </div>
+        <div class="summary-list">
+          {% if summary_points %}
+            {% for pt in summary_points %}
+            <div class="summary-item">
+              <span class="summary-icon">{{ pt.icon }}</span>
+              <span class="summary-text">{{ pt.text }}</span>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="summary-empty">No significant events to report.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SECTION: VOLTAGE MIN/MAX ═══ -->
+    <div class="section-head">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Voltage Min / Max</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">3-Phase Range</div>
+    </div>
+
+    <div class="minmax-grid">
+      <div class="minmax-card">
+        <div class="minmax-title">⚡ R-Phase Voltage (L1)</div>
+        <div class="minmax-row">
+          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ v1_min }} V</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ v1_max }} V</div></div>
+        </div>
+      </div>
+      <div class="minmax-card">
+        <div class="minmax-title">⚡ Y-Phase Voltage (L2)</div>
+        <div class="minmax-row">
+          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ v2_min }} V</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ v2_max }} V</div></div>
+        </div>
+      </div>
+      <div class="minmax-card">
+        <div class="minmax-title">⚡ B-Phase Voltage (L3)</div>
+        <div class="minmax-row">
+          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ v3_min }} V</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ v3_max }} V</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SECTION: CURRENT MIN/MAX ═══ -->
+    <div class="section-head">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Current Min / Max</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">3-Phase Range</div>
+    </div>
+
+    <div class="minmax-grid">
+      <div class="minmax-card">
+        <div class="minmax-title">〜 R-Phase Current (A1)</div>
+        <div class="minmax-row">
+          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ c1_min }} A</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ c1_max }} A</div></div>
+        </div>
+      </div>
+      <div class="minmax-card">
+        <div class="minmax-title">〜 Y-Phase Current (A2)</div>
+        <div class="minmax-row">
+          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ c2_min }} A</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ c2_max }} A</div></div>
+        </div>
+      </div>
+      <div class="minmax-card">
+        <div class="minmax-title">〜 B-Phase Current (A3)</div>
+        <div class="minmax-row">
+          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ c3_min }} A</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ c3_max }} A</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SECTION: PROCESS STATS ═══ -->
+    <div class="section-head">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Process Parameter Stats</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">Pressure · Flow · Frequency</div>
+    </div>
+
+    <div class="minmax-grid">
+      <div class="minmax-card">
+        <div class="minmax-title">🔵 Pressure</div>
+        <div class="minmax-row">
+          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ p_min }}</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ p_avg }}</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ p_max }}</div></div>
+        </div>
+      </div>
+      <div class="minmax-card">
+        <div class="minmax-title">🟢 Flow Sensor</div>
+        <div class="minmax-row">
+          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ f_min }}</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ f_avg }}</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ f_max }}</div></div>
+        </div>
+      </div>
+      <div class="minmax-card">
+        <div class="minmax-title">🟣 Frequency</div>
+        <div class="minmax-row">
+          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ freq_min }}</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ freq_avg }}</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ freq_max }}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SECTION: ERROR + MODE TABLES ═══ -->
+    <div class="section-head">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Event Summary</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">Error &amp; Mode Analysis</div>
+    </div>
+
+    <div class="table-grid">
+      <div class="data-table-box">
+        <div class="dtb-head"><div class="dtb-dot"></div>Error Condition Monitor</div>
+        <table>
+          <tr><th>Dec Code</th><th>Description</th><th>Severity</th><th>Count</th></tr>
+          {% for k, v in error_summary.items() %}
+          <tr>
+            <td class="td-code">{{ k.split(' - ')[0] }}</td>
+            <td>{{ k.split(' - ')[1] }}</td>
+            <td><span class="sev-badge sev-{{ v.severity }}">{{ v.severity }}</span></td>
+            <td class="td-count">{{ v.count }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div class="data-table-box">
+        <div class="dtb-head"><div class="dtb-dot green"></div>Operating Mode Distribution</div>
+        <table>
+          <tr><th>Code</th><th>Mode Description</th><th>Count</th></tr>
+          {% for desc, v in mode_summary.items() %}
+          <tr>
+            <td class="td-code">{{ v.code }}</td>
+            <td><span class="mode-badge">{{ v.icon }} {{ desc }}</span></td>
+            <td class="td-count">{{ v.count }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ SECTION: DATA QUALITY ═══ -->
+    <div class="section-head">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Data Quality Check</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">Sensor Completeness</div>
+    </div>
+
+    <div class="quality-grid">
+      <div class="quality-box">
+        <div class="quality-head"><div class="dtb-dot green"></div>Quality Overview</div>
+        <div class="quality-stats">
+          <div class="qstat"><div class="qstat-val ok">{{ quality_ok }}</div><div class="qstat-lbl">Good</div></div>
+          <div class="qstat"><div class="qstat-val warn">{{ quality_warn }}</div><div class="qstat-lbl">Warnings</div></div>
+          <div class="qstat"><div class="qstat-val miss">{{ quality_miss }}</div><div class="qstat-lbl">Missing</div></div>
+        </div>
+        <div class="quality-list">
+          {% for f in quality_findings[:5] %}
+          <div class="qitem">
+            <span class="qitem-icon">{% if f.status == 'ok' %}✅{% elif f.status == 'warn' %}⚠️{% else %}❌{% endif %}</span>
+            <span class="qitem-field">{{ f.field }}</span>
+            <div class="qitem-bar-wrap">
+              <div class="qitem-bar {{ f.status }}" style="width:{{ f.pct }}%"></div>
+            </div>
+            <span class="qitem-msg">{{ f.message }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="quality-box">
+        <div class="quality-head"><div class="dtb-dot"></div>Sensor Details</div>
+        <div class="quality-list" style="padding-top:8px;">
+          {% for f in quality_findings[5:] %}
+          <div class="qitem">
+            <span class="qitem-icon">{% if f.status == 'ok' %}✅{% elif f.status == 'warn' %}⚠️{% else %}❌{% endif %}</span>
+            <span class="qitem-field">{{ f.field }}</span>
+            <div class="qitem-bar-wrap">
+              <div class="qitem-bar {{ f.status }}" style="width:{{ f.pct }}%"></div>
+            </div>
+            <span class="qitem-msg">{{ f.message }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ SECTION: ELECTRICAL CHARTS ═══ -->
+    <div class="section-head">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Electrical Telemetry</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">Voltage &amp; Current Trends</div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-head">
+        <div class="ch-indicator" style="background:linear-gradient(180deg,#dc2626,#f97316);"></div>
+        <div class="ch-title">Voltage Trend — R / Y / B Phase</div>
+        <div class="ch-badge">3-PHASE</div>
+      </div>
+      <div class="chart-body"><canvas id="voltageChart" height="90"></canvas></div>
+    </div>
+
+    <div class="chart-panel">
+      <div class="chart-head">
+        <div class="ch-indicator" style="background:linear-gradient(180deg,#d97706,#f59e0b);"></div>
+        <div class="ch-title">Current Trend — R / Y / B Phase</div>
+        <div class="ch-badge">3-PHASE</div>
+      </div>
+      <div class="chart-body"><canvas id="currentChart" height="90"></canvas></div>
+    </div>
+
+    <!-- ═══ SECTION: PROCESS CHARTS ═══ -->
+    <div class="section-head">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Process Parameters</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">Pressure · Flow · Frequency · Signal</div>
+    </div>
+
+    <div class="chart-grid-2">
+      <div class="chart-panel" style="margin-bottom:0;">
+        <div class="chart-head">
+          <div class="ch-indicator" style="background:var(--cyan);"></div>
+          <div class="ch-title">Pressure</div><div class="ch-badge">BAR</div>
+        </div>
+        <div class="chart-body"><canvas id="pressureChart" height="120"></canvas></div>
+      </div>
+      <div class="chart-panel" style="margin-bottom:0;">
+        <div class="chart-head">
+          <div class="ch-indicator" style="background:var(--green);"></div>
+          <div class="ch-title">Flow Sensor</div><div class="ch-badge">m³/h</div>
+        </div>
+        <div class="chart-body"><canvas id="flowChart" height="120"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-grid-2" style="margin-top:16px;">
+      <div class="chart-panel" style="margin-bottom:0;">
+        <div class="chart-head">
+          <div class="ch-indicator" style="background:var(--purple);"></div>
+          <div class="ch-title">Frequency</div><div class="ch-badge">Hz</div>
+        </div>
+        <div class="chart-body"><canvas id="frequencyChart" height="120"></canvas></div>
+      </div>
+      <div class="chart-panel" style="margin-bottom:0;">
+        <div class="chart-head">
+          <div class="ch-indicator" style="background:var(--gold);"></div>
+          <div class="ch-title">Signal Strength</div><div class="ch-badge">dBm</div>
+        </div>
+        <div class="chart-body"><canvas id="signalChart" height="120"></canvas></div>
+      </div>
+    </div>
+
+    <!-- ═══ SECTION: CONNECTIVITY ═══ -->
+    <div class="section-head">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Connectivity &amp; Data</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">Network · Pack Count</div>
+    </div>
+
+    <div class="chart-grid-2">
+      <div class="chart-panel" style="margin-bottom:0;">
+        <div class="chart-head">
+          <div class="ch-indicator" style="background:var(--accent);"></div>
+          <div class="ch-title">Pack Count Trend</div><div class="ch-badge">PACKETS</div>
+        </div>
+        <div class="chart-body"><canvas id="packChart" height="120"></canvas></div>
+      </div>
+      <div class="chart-panel" style="margin-bottom:0;">
+        <div class="chart-head">
+          <div class="ch-indicator" style="background:var(--cyan);"></div>
+          <div class="ch-title">2G / 4G Network — {{ network_pct_4g }}% on 4G</div><div class="ch-badge">NET TYPE</div>
+        </div>
+        <div class="chart-body"><canvas id="networkChart" height="120"></canvas></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">
+    <div class="footer-text">TARO CONNECT ANALYTICS · v2.0 · {{ filename }} · {{ total_rows }} records</div>
+    <div class="footer-status">Analysis Complete</div>
+  </div>
+
+</div>
+
+<script>
+// ── Theme ──────────────────────────────────────────────
+const saved = localStorage.getItem('tc-theme') || 'light';
+document.documentElement.setAttribute('data-theme', saved);
+document.getElementById('themeBtn').textContent = saved === 'dark' ? '☀️' : '🌙';
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const cur  = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('tc-theme', next);
+  document.getElementById('themeBtn').textContent = next === 'dark' ? '☀️' : '🌙';
+});
+
+// ── Clock ──────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('sysTime').textContent =
+    new Date().toLocaleTimeString('en-GB', {hour12:false});
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+// ── Chart.js defaults ─────────────────────────────────
+Chart.defaults.font.family = "'DM Mono', monospace";
+Chart.defaults.font.size   = 10;
+Chart.defaults.plugins.legend.labels.boxWidth     = 10;
+Chart.defaults.plugins.legend.labels.padding      = 16;
+Chart.defaults.elements.point.radius              = 0;
+Chart.defaults.elements.point.hoverRadius         = 4;
+Chart.defaults.elements.line.borderWidth          = 2;
+
+function getThemeColors() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return {
+    grid:    dark ? '#1e243a' : '#f0f4fa',
+    tick:    dark ? '#2f3a5a' : '#b0bfd8',
+    legend:  dark ? '#6a7fa8' : '#7a8fb0',
+    ttBg:    dark ? '#121520' : '#ffffff',
+    ttBord:  dark ? '#252d47' : '#e2e8f2',
+    ttTitle: dark ? '#4f8ef7' : '#3b7ef8',
+    ttBody:  dark ? '#c0cfe8' : '#1e2d4a',
+  };
+}
+
+function makeOptions() {
+  const c = getThemeColors();
+  return {
+    responsive: true,
+    animation: { duration:700, easing:'easeInOutQuart' },
+    interaction: { mode:'index', intersect:false },
+    plugins: {
+      legend: {
+        labels: {
+          color: c.legend,
+          font: { family:"'DM Sans',sans-serif", size:12, weight:'600' },
+          usePointStyle:true, pointStyleWidth:12
+        }
+      },
+      tooltip: {
+        backgroundColor: c.ttBg, borderColor: c.ttBord, borderWidth:1,
+        titleColor: c.ttTitle, bodyColor: c.ttBody,
+        padding:12, cornerRadius:8,
+        titleFont:{ family:"'DM Mono',monospace", size:10 },
+        bodyFont: { family:"'DM Sans',sans-serif",  size:13 }
+      }
+    },
+    scales: {
+      x: { ticks:{ maxTicksLimit:8, color:c.tick, maxRotation:30 }, grid:{ color:c.grid } },
+      y: { ticks:{ color:c.tick }, grid:{ color:c.grid } }
+    }
+  };
+}
+
+const labels = {{ labels|tojson }};
+
+const charts = {};
+
+function buildCharts() {
+  const opts = makeOptions();
+
+  charts.voltage = new Chart(document.getElementById('voltageChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'R Phase (L1)', data:{{ voltage1|tojson }}, borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,0.05)', fill:true, tension:0.3 },
+      { label:'Y Phase (L2)', data:{{ voltage2|tojson }}, borderColor:'#d97706', backgroundColor:'rgba(217,119,6,0.05)',  fill:true, tension:0.3 },
+      { label:'B Phase (L3)', data:{{ voltage3|tojson }}, borderColor:'#3b7ef8', backgroundColor:'rgba(59,126,248,0.05)',  fill:true, tension:0.3 }
+    ]}, options: opts
+  });
+
+  charts.current = new Chart(document.getElementById('currentChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'R Current', data:{{ current1|tojson }}, borderColor:'#dc2626', tension:0.3 },
+      { label:'Y Current', data:{{ current2|tojson }}, borderColor:'#d97706', tension:0.3 },
+      { label:'B Current', data:{{ current3|tojson }}, borderColor:'#3b7ef8', tension:0.3 }
+    ]}, options: opts
+  });
+
+  charts.pressure = new Chart(document.getElementById('pressureChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'Pressure', data:{{ pressure|tojson }}, borderColor:'#0891b2', backgroundColor:'rgba(8,145,178,0.06)', fill:true, tension:0.3 }
+    ]}, options: opts
+  });
+
+  charts.flow = new Chart(document.getElementById('flowChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'Flow', data:{{ flow|tojson }}, borderColor:'#059669', backgroundColor:'rgba(5,150,105,0.06)', fill:true, tension:0.3 }
+    ]}, options: opts
+  });
+
+  charts.frequency = new Chart(document.getElementById('frequencyChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'Frequency (Hz)', data:{{ frequency|tojson }}, borderColor:'#7c3aed', backgroundColor:'rgba(124,58,237,0.06)', fill:true, tension:0.3 }
+    ]}, options: opts
+  });
+
+  charts.signal = new Chart(document.getElementById('signalChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'Signal Strength', data:{{ signal|tojson }}, borderColor:'#d97706', backgroundColor:'rgba(217,119,6,0.06)', fill:true, tension:0.3 }
+    ]}, options: opts
+  });
+
+  charts.pack = new Chart(document.getElementById('packChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'Pack Count', data:{{ pack_count_graph|tojson }}, borderColor:'#3b7ef8', backgroundColor:'rgba(59,126,248,0.06)', fill:true, tension:0.2 }
+    ]}, options: opts
+  });
+
+  const netOpts = makeOptions();
+  netOpts.scales.y = {
+    ...netOpts.scales.y,
+    min:1, max:5,
+    ticks:{ color:getThemeColors().tick, callback: v => v===4?'4G':v===2?'2G':'' }
+  };
+  charts.network = new Chart(document.getElementById('networkChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'Network Type', data:{{ network_numeric|tojson }}, borderColor:'#0891b2', backgroundColor:'rgba(8,145,178,0.06)', fill:true, tension:0.1, stepped:true }
+    ]}, options: netOpts
+  });
+}
+
+buildCharts();
+
+// ── Hide loader ────────────────────────────────────────
+window.addEventListener('load', () => {
+  document.getElementById('pageLoader').style.display = 'none';
+});
+</script>
+</body>
+</html>
