@@ -65,15 +65,17 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 # ═══════════════════════════════════════════════════════
 
 def safe_col(df, col):
-    """Return column as list, filling NaN with 0. Empty list if missing."""
-    return df[col].fillna(0).tolist() if col in df.columns else []
+    """Return column as numeric list, filling NaN with 0. Empty list if missing."""
+    if col not in df.columns:
+        return []
+    return pd.to_numeric(df[col], errors="coerce").fillna(0).tolist()
 
 
 def col_stats(df, col):
     """Return (min, max, avg) rounded to 2 dp. Returns (0,0,0) if missing."""
     if col not in df.columns:
         return 0, 0, 0
-    s = df[col].dropna()
+    s = pd.to_numeric(df[col], errors="coerce").dropna()
     if s.empty:
         return 0, 0, 0
     return round(float(s.min()), 2), round(float(s.max()), 2), round(float(s.mean()), 2)
@@ -138,7 +140,9 @@ def compute_health_score(df, error_summary, avg_voltage, avg_current):
 
     # Current balance
     if all(c in df.columns for c in ["Current Amp", "Current Amp2", "Current Amp3"]):
-        means   = [df["Current Amp"].mean(), df["Current Amp2"].mean(), df["Current Amp3"].mean()]
+        means   = [pd.to_numeric(df["Current Amp"],  errors="coerce").mean(),
+                   pd.to_numeric(df["Current Amp2"], errors="coerce").mean(),
+                   pd.to_numeric(df["Current Amp3"], errors="coerce").mean()]
         overall = sum(means) / 3
         if overall > 0:
             imbalance = max(abs(m - overall) / overall for m in means)
@@ -298,7 +302,9 @@ def upload():
     avg_voltage = 0
     if all(c in df.columns for c in ["Line Voltage", "Line Voltage 2", "Line Voltage 3"]):
         avg_voltage = round(
-            (df["Line Voltage"].mean() + df["Line Voltage 2"].mean() + df["Line Voltage 3"].mean()) / 3, 2
+            (pd.to_numeric(df["Line Voltage"], errors="coerce").mean() +
+             pd.to_numeric(df["Line Voltage 2"], errors="coerce").mean() +
+             pd.to_numeric(df["Line Voltage 3"], errors="coerce").mean()) / 3, 2
         )
 
     # ── Current ────────────────────────────────────────
@@ -313,7 +319,9 @@ def upload():
     avg_current = 0
     if all(c in df.columns for c in ["Current Amp", "Current Amp2", "Current Amp3"]):
         avg_current = round(
-            (df["Current Amp"].mean() + df["Current Amp2"].mean() + df["Current Amp3"].mean()) / 3, 2
+            (pd.to_numeric(df["Current Amp"],  errors="coerce").mean() +
+             pd.to_numeric(df["Current Amp2"], errors="coerce").mean() +
+             pd.to_numeric(df["Current Amp3"], errors="coerce").mean()) / 3, 2
         )
 
     # ── Process parameters ─────────────────────────────
