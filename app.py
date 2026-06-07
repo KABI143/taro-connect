@@ -71,6 +71,14 @@ def safe_col(df, col):
     return pd.to_numeric(df[col], errors="coerce").fillna(0).tolist()
 
 
+def downsample(lst, max_points=500):
+    """Reduce list to max_points evenly spaced — keeps charts fast & RAM low."""
+    if len(lst) <= max_points:
+        return lst
+    step = len(lst) // max_points
+    return lst[::step][:max_points]
+
+
 def col_stats(df, col):
     """Return (min, max, avg) rounded to 2 dp. Returns (0,0,0) if missing."""
     if col not in df.columns:
@@ -224,15 +232,26 @@ def upload():
     file.save(path)
 
     try:
-        ext = os.path.splitext(file.filename)[1].lower()
+        ext    = os.path.splitext(file.filename)[1].lower()
         engine = "xlrd" if ext == ".xls" else "openpyxl"
-        df = pd.read_excel(path, engine=engine, dtype=str)
-        # Convert numeric columns back to numbers
-        for col in df.columns:
-            try:
-                df[col] = pd.to_numeric(df[col], errors="ignore")
-            except Exception:
-                pass
+
+        # Read only the columns we actually need — saves RAM on Render free plan
+        NEEDED_COLS = [
+            "DeviceId", "IoTHubName", "PumpPhaseType", "QueuedTime-IST",
+            "MotorRunningStatus", "Error CondMon", "ModeOfOperating",
+            "Line Voltage", "Line Voltage 2", "Line Voltage 3",
+            "Current Amp", "Current Amp2", "Current Amp3",
+            "Pressure", "Flow Sensor", "Frequency", "Signal",
+            "PackCount", "NetType", "Total Running Time",
+        ]
+
+        # First pass — find which needed columns exist
+        header_df = pd.read_excel(path, engine=engine, nrows=0)
+        use_cols  = [c for c in NEEDED_COLS if c in header_df.columns]
+
+        # Second pass — read only those columns, dtype=str avoids datetime crash
+        df = pd.read_excel(path, engine=engine, usecols=use_cols, dtype=str)
+
     except Exception as e:
         return render_template("index.html", upload_error=f"Could not read file: {e}")
 
@@ -254,10 +273,12 @@ def upload():
         if not ts.empty:
             date_range = f"{ts.min().strftime('%d %b %Y')} → {ts.max().strftime('%d %b %Y')}"
 
-    # ── Motor start count (vectorized — fast) ─────────
+    # ── Motor start count ─────────────────────────────
     start_count = 0
     if "MotorRunningStatus" in df.columns:
-        ms = df["MotorRunningStatus"].fillna(0).astype(bool)
+        # Handle both string ("True"/"False"/"1"/"0") and numeric (0/1)
+        raw = df["MotorRunningStatus"].fillna(0).astype(str).str.strip().str.upper()
+        ms  = raw.map(lambda x: x in ("1", "TRUE", "YES", "ON"))
         start_count = int(((ms.shift(1) == False) & (ms == True)).sum())
 
     # ── Error summary ──────────────────────────────────
@@ -416,6 +437,21 @@ def upload():
         summary_points.append({"type": "warning", "icon": "⚡",
             "text": f"High motor start count ({start_count}). Consider investigating frequent cycling."})
 
+    # ── Downsample chart data (max 500 pts) — saves RAM & response size ──
+    ds_labels          = downsample(time_labels)
+    ds_voltage1        = downsample(voltage1)
+    ds_voltage2        = downsample(voltage2)
+    ds_voltage3        = downsample(voltage3)
+    ds_current1        = downsample(current1)
+    ds_current2        = downsample(current2)
+    ds_current3        = downsample(current3)
+    ds_pressure        = downsample(pressure)
+    ds_flow            = downsample(flow)
+    ds_frequency       = downsample(frequency)
+    ds_signal          = downsample(signal)
+    ds_network_numeric = downsample(network_numeric)
+    ds_pack_graph      = downsample(pack_count_graph)
+
     # ── Render dashboard ───────────────────────────────
     return render_template(
         "dashboard.html",
@@ -476,14 +512,14 @@ def upload():
         net_2g_count=net_2g_count,
         network_pct_4g=network_pct_4g,
 
-        # Chart data
-        labels=time_labels,
-        voltage1=voltage1, voltage2=voltage2, voltage3=voltage3,
-        current1=current1, current2=current2, current3=current3,
-        pressure=pressure, flow=flow,
-        frequency=frequency, signal=signal,
-        network_numeric=network_numeric,
-        pack_count_graph=pack_count_graph,
+        # Chart data (downsampled)
+        labels=ds_labels,
+        voltage1=ds_voltage1, voltage2=ds_voltage2, voltage3=ds_voltage3,
+        current1=ds_current1, current2=ds_current2, current3=ds_current3,
+        pressure=ds_pressure, flow=ds_flow,
+        frequency=ds_frequency, signal=ds_signal,
+        network_numeric=ds_network_numeric,
+        pack_count_graph=ds_pack_graph,
     )
 
 
