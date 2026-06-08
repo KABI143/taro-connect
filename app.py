@@ -161,15 +161,62 @@ def compute_stats(df):
             severity = ("critical" if code in CRITICAL_ERRORS else
                         "warning"  if code in WARNING_ERRORS  else "info")
             error_summary[f"{code} - {desc}"] = {"count": count, "severity": severity}
+    
+    # Actual runtime by mode (Motor ON time only)
+    mode_runtime = {}
 
+    if all(col in df.columns for col in [
+    "ModeOfOperating",
+    "MotorRunningStatus",
+    "QueuedTime-IST"
+    ]):
+
+      ts = pd.to_datetime(df["QueuedTime-IST"], errors="coerce")
+
+    for i in range(len(df) - 1):
+
+        running = str(df.iloc[i]["MotorRunningStatus"]).strip().upper()
+
+        if running not in ["1", "TRUE", "YES", "ON"]:
+            continue
+
+        try:
+            mode = int(df.iloc[i]["ModeOfOperating"])
+        except:
+            continue
+
+        if pd.isna(ts.iloc[i]) or pd.isna(ts.iloc[i + 1]):
+            continue
+
+        diff = (ts.iloc[i + 1] - ts.iloc[i]).total_seconds() / 60
+
+        if diff <= 0:
+            continue
+
+        mode_runtime[mode] = mode_runtime.get(mode, 0) + diff
+
+# Mode summary
     mode_summary = {}
+
     if "ModeOfOperating" in df.columns:
-        for code, count in df["ModeOfOperating"].value_counts().items():
-            try:    code_int = int(code)
-            except: code_int = -1
-            mode_summary[MODE_DESCRIPTIONS.get(code_int, f"Unknown Mode ({code})")] = {
-                "code": code_int, "count": count, "icon": MODE_ICONS.get(code_int, "❓")
-            }
+      for code, count in df["ModeOfOperating"].value_counts().items():
+
+        try:
+            code_int = int(code)
+        except:
+            code_int = -1
+
+        mode_summary[
+            MODE_DESCRIPTIONS.get(code_int, f"Unknown Mode ({code})")
+        ] = {
+            "code": code_int,
+            "count": count,
+            "icon": MODE_ICONS.get(code_int, "❓"),
+            "duration": minutes_to_dhm(
+                mode_runtime.get(code_int, 0)
+            )
+        }
+
 
     def _s(col): return df[col] if col in df.columns else pd.Series(dtype=float)
 
@@ -200,10 +247,29 @@ def compute_stats(df):
     network_pct_4g = round(net_4g_count / max(net_4g_count + net_2g_count, 1) * 100, 1)
 
     total_runtime = 0
-    if "Total Running Time" in df.columns:
-        diff = pd.to_numeric(df["Total Running Time"], errors="coerce").diff().fillna(0)
-        total_runtime = float(diff[diff > 0].sum())
 
+    if all(col in df.columns for col in [
+    "MotorRunningStatus",
+    "QueuedTime-IST"
+    ]):
+
+      ts = pd.to_datetime(df["QueuedTime-IST"], errors="coerce")
+
+    for i in range(len(df) - 1):
+
+        running = str(df.iloc[i]["MotorRunningStatus"]).strip().upper()
+
+        if running not in ["1", "TRUE", "YES", "ON"]:
+            continue
+
+        if pd.isna(ts.iloc[i]) or pd.isna(ts.iloc[i + 1]):
+            continue
+
+        diff = (ts.iloc[i + 1] - ts.iloc[i]).total_seconds() / 60
+
+        if diff > 0:
+            total_runtime += diff
+            
     # Health score
     score = 100.0
     for key, val in error_summary.items():
@@ -281,6 +347,16 @@ def compute_charts(df):
             return []
         return downsample_series(df[col])
 
+    def _has_data(*cols):
+        """True if at least one col exists and has non-zero numeric data."""
+        for col in cols:
+            if col not in df.columns:
+                continue
+            s = pd.to_numeric(df[col], errors="coerce").dropna()
+            if len(s) > 0 and s.abs().sum() > 0:
+                return True
+        return False
+
     time_labels = []
     if "QueuedTime-IST" in df.columns:
         time_labels = downsample_list(df["QueuedTime-IST"].astype(str).tolist())
@@ -299,6 +375,15 @@ def compute_charts(df):
         frequency=_ds("Frequency"),     signal=_ds("Signal"),
         pack_count_graph=_ds("PackCount"),
         network_numeric=net_numeric,
+        # ── availability flags ──────────────────────────────────────────
+        has_voltage  =_has_data("Line Voltage", "Line Voltage 2", "Line Voltage 3"),
+        has_current  =_has_data("Current Amp",  "Current Amp2",   "Current Amp3"),
+        has_pressure =_has_data("Pressure"),
+        has_flow     =_has_data("Flow Sensor"),
+        has_frequency=_has_data("Frequency"),
+        has_signal   =_has_data("Signal"),
+        has_pack     =_has_data("PackCount"),
+        has_network  ="NetType" in df.columns and len(net_numeric) > 0,
     )
 
 
