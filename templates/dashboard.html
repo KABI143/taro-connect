@@ -4,10 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Taro Connect — Device Analytics Dashboard</title>
-<link rel="icon" type="image/png" href="/static/images/taroconnect.png">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════
    LIGHT THEME (default)
@@ -55,7 +53,7 @@
 html { scroll-behavior:smooth }
 body {
   background: var(--bg); color: var(--text);
-  font-family:'Inter',sans-serif; font-size:14px;
+  font-family:'DM Sans',sans-serif; font-size:14px;
   min-height:100vh; transition: background 0.3s, color 0.3s;
 }
 body::before {
@@ -81,8 +79,8 @@ body::before {
   border:1px solid var(--border2); border-bottom:1px solid var(--accent2);
   animation:spin 1.5s linear infinite reverse;
 }
-.pl-title { font-family:'Inter',sans-serif; font-size:18px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:var(--text); }
-.pl-sub   { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); animation:blink 1.4s step-end infinite; }
+.pl-title { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:var(--text); }
+.pl-sub   { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); animation:blink 1.4s step-end infinite; }
 @keyframes spin  { to { transform:rotate(360deg) } }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
@@ -105,17 +103,17 @@ body::before {
 }
 .topbar-logo  { width:38px; height:38px; object-fit:contain; border-radius:8px; }
 .topbar-brand { flex:1; }
-.topbar-title { font-family:'Inter',sans-serif; font-size:18px; font-weight:800; color:var(--text); letter-spacing:-0.3px; line-height:1; }
-.topbar-sub   { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; margin-top:3px; }
+.topbar-title { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; color:var(--text); letter-spacing:-0.3px; line-height:1; }
+.topbar-sub   { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; margin-top:3px; }
 .topbar-right { display:flex; align-items:center; gap:10px; }
 .sys-time {
-  font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--cyan);
+  font-family:'DM Mono',monospace; font-size:12px; color:var(--cyan);
   background:rgba(8,145,178,0.07); border:1px solid rgba(8,145,178,0.18);
   border-radius:6px; padding:4px 10px;
 }
 .back-btn {
   background:var(--card); border:1px solid var(--border2); color:var(--text);
-  padding:7px 14px; font-family:'Inter',sans-serif; font-size:12px; font-weight:600;
+  padding:7px 14px; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
   letter-spacing:1px; text-transform:uppercase; text-decoration:none;
   cursor:pointer; border-radius:8px; transition:all 0.2s;
 }
@@ -128,7 +126,6 @@ body::before {
 .theme-btn:hover { border-color:var(--accent); color:var(--accent); }
 
 /* ── INFO BAR ── */
-.info-bar-inner { display:flex; width:100%; max-width:1600px; margin:0 auto; }
 .info-bar {
   background:var(--surface); border-bottom:1px solid var(--border);
   padding:0 28px; display:flex; box-shadow:0 1px 4px rgba(0,0,0,0.03);
@@ -136,22 +133,22 @@ body::before {
 .info-item { flex:1; padding:12px 20px; border-right:1px solid var(--border); }
 .info-item:first-child { padding-left:0; }
 .info-item:last-child  { border-right:none; }
-.info-label { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
-.info-val   { font-family:'Inter',sans-serif; font-size:14px; font-weight:700; color:var(--text); }
+.info-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
+.info-val   { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; color:var(--text); }
 .info-val.blue  { color:var(--accent); }
 .info-val.cyan  { color:var(--cyan);   }
 .info-val.green { color:var(--green);  }
 
 /* ── LAYOUT ── */
-.content { padding:28px; max-width:1600px; margin:0 auto; width:100%; }
+.content { padding:28px; max-width:1600px; }
 
 .section-head { display:flex; align-items:center; gap:12px; margin-bottom:18px; margin-top:36px; }
 .section-head:first-child { margin-top:0; }
 .sh-bar   { width:3px; height:20px; background:linear-gradient(180deg,var(--accent),var(--accent2)); border-radius:2px; flex-shrink:0; }
-.sh-title { font-family:'Inter',sans-serif; font-size:17px; font-weight:700; color:var(--text); }
+.sh-title { font-family:'Syne',sans-serif; font-size:17px; font-weight:700; color:var(--text); }
 .sh-line  { flex:1; height:1px; background:var(--border); }
 .sh-tag   {
-  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted);
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted);
   text-transform:uppercase; background:var(--surface); border:1px solid var(--border);
   border-radius:4px; padding:3px 8px;
 }
@@ -178,10 +175,10 @@ body::before {
 .kpi-card.cyan::after  { background:linear-gradient(90deg,var(--cyan),#6366f1); }
 .kpi-card.purple::after{ background:linear-gradient(90deg,var(--purple),var(--accent2)); }
 
-.kpi-label { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
-.kpi-value { font-family:'Inter',sans-serif; font-size:34px; font-weight:800; color:var(--text); line-height:1; letter-spacing:-1px; }
-.kpi-unit  { font-family:'Inter',sans-serif; font-size:11px; color:var(--muted); margin-top:6px; }
-.kpi-icon  { position:absolute; bottom:12px; right:14px; font-size:36px; opacity:0.20; line-height:1; }
+.kpi-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+.kpi-value { font-family:'Syne',sans-serif; font-size:34px; font-weight:800; color:var(--text); line-height:1; letter-spacing:-1px; }
+.kpi-unit  { font-family:'DM Sans',sans-serif; font-size:11px; color:var(--muted); margin-top:6px; }
+.kpi-icon  { position:absolute; bottom:14px; right:16px; font-size:24px; opacity:0.07; }
 
 /* ── HEALTH CARD ── */
 .health-card {
@@ -210,14 +207,14 @@ body::before {
   position:absolute; inset:0; display:flex; flex-direction:column;
   align-items:center; justify-content:center;
 }
-.health-pct   { font-family:'Inter',sans-serif; font-size:22px; font-weight:800; color:var(--text); line-height:1; }
-.health-sub   { font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--muted); letter-spacing:1px; margin-top:2px; }
+.health-pct   { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:var(--text); line-height:1; }
+.health-sub   { font-family:'DM Mono',monospace; font-size:8px; color:var(--muted); letter-spacing:1px; margin-top:2px; }
 .health-info  { flex:1; }
-.health-title { font-family:'Inter',sans-serif; font-size:20px; font-weight:800; color:var(--text); margin-bottom:6px; }
-.health-desc  { font-family:'Inter',sans-serif; font-size:13px; color:var(--muted); line-height:1.6; }
+.health-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:var(--text); margin-bottom:6px; }
+.health-desc  { font-family:'DM Sans',sans-serif; font-size:13px; color:var(--muted); line-height:1.6; }
 .health-badge {
   display:inline-block; margin-top:10px;
-  font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2px;
+  font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px;
   text-transform:uppercase; padding:4px 12px; border-radius:20px; font-weight:600;
 }
 .health-badge.green  { background:rgba(5,150,105,0.1);  color:var(--green); border:1px solid rgba(5,150,105,0.2); }
@@ -232,7 +229,7 @@ body::before {
 }
 .summary-head {
   background:var(--card2); border-bottom:1px solid var(--border);
-  padding:14px 20px; font-family:'Inter',sans-serif; font-size:13px; font-weight:700;
+  padding:14px 20px; font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
   color:var(--text); display:flex; align-items:center; gap:10px;
 }
 .summary-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; }
@@ -256,11 +253,11 @@ body::before {
   padding:16px 18px; box-shadow:0 2px 6px rgba(0,0,0,0.03); transition:all 0.2s;
 }
 .minmax-card:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(59,126,248,0.08); }
-.minmax-title { font-family:'Inter',sans-serif; font-size:12px; font-weight:700; color:var(--text); margin-bottom:12px; }
+.minmax-title { font-family:'Syne',sans-serif; font-size:12px; font-weight:700; color:var(--text); margin-bottom:12px; }
 .minmax-row   { display:flex; gap:8px; }
 .minmax-item  { flex:1; background:var(--card); border-radius:8px; padding:8px 10px; text-align:center; }
-.minmax-lbl   { font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
-.minmax-val   { font-family:'Inter',sans-serif; font-size:15px; font-weight:700; }
+.minmax-lbl   { font-family:'DM Mono',monospace; font-size:8px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
+.minmax-val   { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; }
 .minmax-val.mn { color:var(--cyan); }
 .minmax-val.mx { color:var(--red);  }
 .minmax-val.av { color:var(--green);}
@@ -274,28 +271,28 @@ body::before {
 }
 .quality-head {
   background:var(--card2); border-bottom:1px solid var(--border);
-  padding:14px 20px; font-family:'Inter',sans-serif; font-size:13px; font-weight:700;
+  padding:14px 20px; font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
   color:var(--text); display:flex; align-items:center; gap:10px;
 }
 .quality-stats { display:flex; gap:0; border-bottom:1px solid var(--border); }
 .qstat { flex:1; padding:12px; text-align:center; border-right:1px solid var(--border); }
 .qstat:last-child { border-right:none; }
-.qstat-val { font-family:'Inter',sans-serif; font-size:22px; font-weight:800; }
+.qstat-val { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; }
 .qstat-val.ok   { color:var(--green); }
 .qstat-val.warn { color:var(--gold);  }
 .qstat-val.miss { color:var(--red);   }
-.qstat-lbl { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-top:3px; }
+.qstat-lbl { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-top:3px; }
 .quality-list { padding:4px 0; }
 .qitem { display:flex; align-items:center; gap:12px; padding:10px 18px; border-bottom:1px solid var(--border); }
 .qitem:last-child { border-bottom:none; }
 .qitem-icon { font-size:14px; flex-shrink:0; }
-.qitem-field { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text); width:130px; flex-shrink:0; }
+.qitem-field { font-family:'DM Mono',monospace; font-size:11px; color:var(--text); width:130px; flex-shrink:0; }
 .qitem-bar-wrap { flex:1; background:var(--border); border-radius:4px; height:6px; overflow:hidden; }
 .qitem-bar { height:100%; border-radius:4px; transition:width 1s ease; }
 .qitem-bar.ok   { background:var(--green); }
 .qitem-bar.warn { background:var(--gold);  }
 .qitem-bar.miss { background:var(--red);   width:100% !important; }
-.qitem-msg { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); width:160px; text-align:right; flex-shrink:0; }
+.qitem-msg { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); width:160px; text-align:right; flex-shrink:0; }
 
 /* ── TABLES ── */
 .table-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -304,7 +301,7 @@ body::before {
 .data-table-box { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.03); }
 .dtb-head {
   background:var(--card2); border-bottom:1px solid var(--border); padding:14px 20px;
-  font-family:'Inter',sans-serif; font-size:13px; font-weight:700;
+  font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
   color:var(--text); display:flex; align-items:center; gap:10px;
 }
 .dtb-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; }
@@ -313,17 +310,17 @@ body::before {
 table { width:100%; border-collapse:collapse; }
 table th {
   background:var(--card); color:var(--muted);
-  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase;
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase;
   padding:10px 16px; text-align:left; border-bottom:1px solid var(--border);
 }
 table td { padding:10px 16px; border-bottom:1px solid var(--border); font-size:13px; color:var(--text); }
 table tr:last-child td { border-bottom:none; }
 table tr:hover td { background:rgba(59,126,248,0.025); }
 
-.td-count { font-family:'JetBrains Mono',monospace; color:var(--cyan); font-size:13px; }
-.td-code  { font-family:'JetBrains Mono',monospace; color:var(--muted); font-size:11px; }
+.td-count { font-family:'DM Mono',monospace; color:var(--cyan); font-size:13px; }
+.td-code  { font-family:'DM Mono',monospace; color:var(--muted); font-size:11px; }
 .sev-badge {
-  display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px;
+  display:inline-block; font-family:'DM Mono',monospace; font-size:9px;
   letter-spacing:1px; text-transform:uppercase; padding:3px 8px; border-radius:4px; font-weight:600;
 }
 .sev-critical { background:rgba(220,38,38,0.1);   color:var(--red);    border:1px solid rgba(220,38,38,0.2); }
@@ -331,7 +328,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
 .sev-info     { background:rgba(59,126,248,0.08); color:var(--accent); border:1px solid rgba(59,126,248,0.15); }
 .mode-badge {
   display:inline-flex; align-items:center; gap:5px;
-  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1px;
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:1px;
   text-transform:uppercase; padding:3px 8px; border-radius:4px;
   background:rgba(5,150,105,0.08); color:var(--green); border:1px solid rgba(5,150,105,0.18);
 }
@@ -340,36 +337,22 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
 .chart-panel { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin-bottom:16px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.03); }
 .chart-head  { background:var(--card2); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; gap:10px; }
 .ch-indicator { width:3px; height:18px; border-radius:2px; flex-shrink:0; }
-.ch-title { font-family:'Inter',sans-serif; font-size:13px; font-weight:700; color:var(--text); flex:1; }
+.ch-title { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; color:var(--text); flex:1; }
 .ch-badge {
-  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.5px; color:var(--muted);
+  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:1.5px; color:var(--muted);
   background:var(--surface); border:1px solid var(--border2); border-radius:4px; padding:3px 8px;
 }
 .chart-body { padding:20px; }
 .chart-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
 @media(max-width:900px){ .chart-grid-2{grid-template-columns:1fr} }
 
-/* ── NO DATA PLACEHOLDER ── */
-.no-data-msg {
-  padding: 40px 20px;
-  text-align: center;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  color: var(--muted);
-  letter-spacing: 1px;
-  border: 1.5px dashed var(--border2);
-  border-radius: 10px;
-  margin: 16px;
-  background: var(--card);
-}
-
 /* ── FOOTER ── */
 .footer {
   background:var(--surface); border-top:1px solid var(--border);
   padding:16px 28px; display:flex; align-items:center; justify-content:space-between; margin-top:16px;
 }
-.footer-text   { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:1px; }
-.footer-status { display:flex; align-items:center; gap:7px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--green); }
+.footer-text   { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:1px; }
+.footer-status { display:flex; align-items:center; gap:7px; font-family:'DM Mono',monospace; font-size:10px; color:var(--green); }
 .footer-status::before {
   content:''; width:6px; height:6px; border-radius:50%; background:var(--green);
   animation:pulse-live 2s ease-in-out infinite;
@@ -403,7 +386,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
 
   <!-- INFO BAR -->
   <div class="info-bar">
-    <div class="info-bar-inner">
     <div class="info-item">
       <div class="info-label">Device ID</div>
       <div class="info-val blue">{{ device_id }}</div>
@@ -427,7 +409,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
     <div class="info-item">
       <div class="info-label">Status</div>
       <div class="info-val green">✓ Complete</div>
-    </div>
     </div>
   </div>
 
@@ -596,7 +577,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       <div class="sh-bar"></div>
       <div class="sh-title">Process Parameter Stats</div>
       <div class="sh-line"></div>
-      <div class="sh-tag">Pressure · Flow · Frequency · Signal</div>
+      <div class="sh-tag">Pressure · Flow · Frequency</div>
     </div>
 
     <div class="minmax-grid">
@@ -622,14 +603,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ freq_min }}</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ freq_avg }}</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ freq_max }}</div></div>
-        </div>
-      </div>
-      <div class="minmax-card">
-        <div class="minmax-title">📶 Signal Strength</div>
-        <div class="minmax-row">
-          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ sig_min }} dBm</div></div>
-          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ sig_avg }} dBm</div></div>
-          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ sig_max }} dBm</div></div>
         </div>
       </div>
     </div>
@@ -660,13 +633,12 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       <div class="data-table-box">
         <div class="dtb-head"><div class="dtb-dot green"></div>Operating Mode Distribution</div>
         <table>
-          <tr><th>Code</th><th>Mode Description</th><th>Count</th><th>Actual Run Time</th></tr>
+          <tr><th>Code</th><th>Mode Description</th><th>Count</th></tr>
           {% for desc, v in mode_summary.items() %}
           <tr>
             <td class="td-code">{{ v.code }}</td>
             <td><span class="mode-badge">{{ v.icon }} {{ desc }}</span></td>
             <td class="td-count">{{ v.count }}</td>
-            <td>{{ v.duration }}</td>
           </tr>
           {% endfor %}
         </table>
@@ -727,31 +699,23 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       <div class="sh-tag">Voltage &amp; Current Trends</div>
     </div>
 
-    {% if has_voltage %}
     <div class="chart-panel">
       <div class="chart-head">
         <div class="ch-indicator" style="background:linear-gradient(180deg,#dc2626,#f97316);"></div>
         <div class="ch-title">Voltage Trend — R / Y / B Phase</div>
-        <div class="ch-badge">3-PHASE · V</div>
+        <div class="ch-badge">3-PHASE</div>
       </div>
       <div class="chart-body"><canvas id="voltageChart" height="90"></canvas></div>
     </div>
-    {% else %}
-    <div class="chart-panel"><div class="no-data-msg">⚡ Voltage data not available in this report</div></div>
-    {% endif %}
 
-    {% if has_current %}
     <div class="chart-panel">
       <div class="chart-head">
         <div class="ch-indicator" style="background:linear-gradient(180deg,#d97706,#f59e0b);"></div>
         <div class="ch-title">Current Trend — R / Y / B Phase</div>
-        <div class="ch-badge">3-PHASE · A</div>
+        <div class="ch-badge">3-PHASE</div>
       </div>
       <div class="chart-body"><canvas id="currentChart" height="90"></canvas></div>
     </div>
-    {% else %}
-    <div class="chart-panel"><div class="no-data-msg">〜 Current data not available in this report</div></div>
-    {% endif %}
 
     <!-- ═══ SECTION: PROCESS CHARTS ═══ -->
     <div class="section-head">
@@ -762,7 +726,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
     </div>
 
     <div class="chart-grid-2">
-      {% if has_pressure %}
       <div class="chart-panel" style="margin-bottom:0;">
         <div class="chart-head">
           <div class="ch-indicator" style="background:var(--cyan);"></div>
@@ -770,10 +733,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         </div>
         <div class="chart-body"><canvas id="pressureChart" height="120"></canvas></div>
       </div>
-      {% else %}
-      <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">🔵 Pressure data not available</div></div>
-      {% endif %}
-      {% if has_flow %}
       <div class="chart-panel" style="margin-bottom:0;">
         <div class="chart-head">
           <div class="ch-indicator" style="background:var(--green);"></div>
@@ -781,13 +740,9 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         </div>
         <div class="chart-body"><canvas id="flowChart" height="120"></canvas></div>
       </div>
-      {% else %}
-      <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">🟢 Flow data not available</div></div>
-      {% endif %}
     </div>
 
     <div class="chart-grid-2" style="margin-top:16px;">
-      {% if has_frequency %}
       <div class="chart-panel" style="margin-bottom:0;">
         <div class="chart-head">
           <div class="ch-indicator" style="background:var(--purple);"></div>
@@ -795,10 +750,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         </div>
         <div class="chart-body"><canvas id="frequencyChart" height="120"></canvas></div>
       </div>
-      {% else %}
-      <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">🟣 Frequency data not available</div></div>
-      {% endif %}
-      {% if has_signal %}
       <div class="chart-panel" style="margin-bottom:0;">
         <div class="chart-head">
           <div class="ch-indicator" style="background:var(--gold);"></div>
@@ -806,9 +757,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         </div>
         <div class="chart-body"><canvas id="signalChart" height="120"></canvas></div>
       </div>
-      {% else %}
-      <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">📶 Signal data not available</div></div>
-      {% endif %}
     </div>
 
     <!-- ═══ SECTION: CONNECTIVITY ═══ -->
@@ -820,7 +768,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
     </div>
 
     <div class="chart-grid-2">
-      {% if has_pack %}
       <div class="chart-panel" style="margin-bottom:0;">
         <div class="chart-head">
           <div class="ch-indicator" style="background:var(--accent);"></div>
@@ -828,10 +775,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         </div>
         <div class="chart-body"><canvas id="packChart" height="120"></canvas></div>
       </div>
-      {% else %}
-      <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">📦 Pack Count data not available</div></div>
-      {% endif %}
-      {% if has_network %}
       <div class="chart-panel" style="margin-bottom:0;">
         <div class="chart-head">
           <div class="ch-indicator" style="background:var(--cyan);"></div>
@@ -839,9 +782,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         </div>
         <div class="chart-body"><canvas id="networkChart" height="120"></canvas></div>
       </div>
-      {% else %}
-      <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">📡 Network type data not available</div></div>
-      {% endif %}
     </div>
 
   </div>
@@ -875,7 +815,7 @@ updateClock();
 setInterval(updateClock, 1000);
 
 // ── Chart.js defaults ─────────────────────────────────
-Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.family = "'DM Mono', monospace";
 Chart.defaults.font.size   = 10;
 Chart.defaults.plugins.legend.labels.boxWidth     = 10;
 Chart.defaults.plugins.legend.labels.padding      = 16;
@@ -902,155 +842,93 @@ function makeOptions() {
     responsive: true,
     animation: { duration:700, easing:'easeInOutQuart' },
     interaction: { mode:'index', intersect:false },
-
     plugins: {
       legend: {
         labels: {
           color: c.legend,
-          font: { family:"'Inter',sans-serif", size:12, weight:'600' },
-          usePointStyle:true,
-          pointStyleWidth:12
+          font: { family:"'DM Sans',sans-serif", size:12, weight:'600' },
+          usePointStyle:true, pointStyleWidth:12
         }
       },
-
       tooltip: {
-        backgroundColor: c.ttBg,
-        borderColor: c.ttBord,
-        borderWidth:1,
-        titleColor: c.ttTitle,
-        bodyColor: c.ttBody,
-        padding:12,
-        cornerRadius:8,
-        titleFont:{ family:"'JetBrains Mono',monospace", size:10 },
-        bodyFont:{ family:"'Inter',sans-serif", size:13 }
-      },
-
-      // 🔥 ADD THIS
-      zoom: {
-        pan: {
-          enabled: true,
-          mode: 'x'
-        },
-        zoom: {
-          wheel: {
-            enabled: true
-          },
-          pinch: {
-            enabled: true
-          },
-          mode: 'x'
-        }
+        backgroundColor: c.ttBg, borderColor: c.ttBord, borderWidth:1,
+        titleColor: c.ttTitle, bodyColor: c.ttBody,
+        padding:12, cornerRadius:8,
+        titleFont:{ family:"'DM Mono',monospace", size:10 },
+        bodyFont: { family:"'DM Sans',sans-serif",  size:13 }
       }
     },
-
     scales: {
-      x: {
-        ticks:{
-          maxTicksLimit:8,
-          color:c.tick,
-          maxRotation:30
-        },
-        grid:{ color:c.grid }
-      },
-      y: {
-        ticks:{ color:c.tick },
-        grid:{ color:c.grid }
-      }
+      x: { ticks:{ maxTicksLimit:8, color:c.tick, maxRotation:30 }, grid:{ color:c.grid } },
+      y: { ticks:{ color:c.tick }, grid:{ color:c.grid } }
     }
   };
 }
-const labels = {{ labels|tojson }};
 
-// Availability flags from Python
-const HAS = {
-  voltage:   {{ has_voltage  | tojson }},
-  current:   {{ has_current  | tojson }},
-  pressure:  {{ has_pressure | tojson }},
-  flow:      {{ has_flow     | tojson }},
-  frequency: {{ has_frequency| tojson }},
-  signal:    {{ has_signal   | tojson }},
-  pack:      {{ has_pack     | tojson }},
-  network:   {{ has_network  | tojson }},
-};
+const labels = {{ labels|tojson }};
 
 const charts = {};
 
 function buildCharts() {
   const opts = makeOptions();
 
-  if (HAS.voltage) {
-    charts.voltage = new Chart(document.getElementById('voltageChart'), {
-      type:'line', data:{ labels, datasets:[
-        { label:'R Phase (L1)', data:{{ voltage1|tojson }}, borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,0.05)', fill:true, tension:0.3 },
-        { label:'Y Phase (L2)', data:{{ voltage2|tojson }}, borderColor:'#d97706', backgroundColor:'rgba(217,119,6,0.05)',  fill:true, tension:0.3 },
-        { label:'B Phase (L3)', data:{{ voltage3|tojson }}, borderColor:'#3b7ef8', backgroundColor:'rgba(59,126,248,0.05)',  fill:true, tension:0.3 }
-      ]}, options: { ...opts, plugins:{ ...opts.plugins, tooltip:{ ...opts.plugins.tooltip, callbacks:{ label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} V` } } } }
-    });
-  }
+  charts.voltage = new Chart(document.getElementById('voltageChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'R Phase (L1)', data:{{ voltage1|tojson }}, borderColor:'#dc2626', backgroundColor:'rgba(220,38,38,0.05)', fill:true, tension:0.3 },
+      { label:'Y Phase (L2)', data:{{ voltage2|tojson }}, borderColor:'#d97706', backgroundColor:'rgba(217,119,6,0.05)',  fill:true, tension:0.3 },
+      { label:'B Phase (L3)', data:{{ voltage3|tojson }}, borderColor:'#3b7ef8', backgroundColor:'rgba(59,126,248,0.05)',  fill:true, tension:0.3 }
+    ]}, options: opts
+  });
 
-  if (HAS.current) {
-    charts.current = new Chart(document.getElementById('currentChart'), {
-      type:'line', data:{ labels, datasets:[
-        { label:'R Current', data:{{ current1|tojson }}, borderColor:'#dc2626', tension:0.3 },
-        { label:'Y Current', data:{{ current2|tojson }}, borderColor:'#d97706', tension:0.3 },
-        { label:'B Current', data:{{ current3|tojson }}, borderColor:'#3b7ef8', tension:0.3 }
-      ]}, options: { ...opts, plugins:{ ...opts.plugins, tooltip:{ ...opts.plugins.tooltip, callbacks:{ label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y} A` } } } }
-    });
-  }
+  charts.current = new Chart(document.getElementById('currentChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'R Current', data:{{ current1|tojson }}, borderColor:'#dc2626', tension:0.3 },
+      { label:'Y Current', data:{{ current2|tojson }}, borderColor:'#d97706', tension:0.3 },
+      { label:'B Current', data:{{ current3|tojson }}, borderColor:'#3b7ef8', tension:0.3 }
+    ]}, options: opts
+  });
 
-  if (HAS.pressure) {
-    charts.pressure = new Chart(document.getElementById('pressureChart'), {
-      type:'line', data:{ labels, datasets:[
-        { label:'Pressure', data:{{ pressure|tojson }}, borderColor:'#0891b2', backgroundColor:'rgba(8,145,178,0.06)', fill:true, tension:0.3 }
-      ]}, options: { ...opts, plugins:{ ...opts.plugins, tooltip:{ ...opts.plugins.tooltip, callbacks:{ label: ctx => `Pressure: ${ctx.parsed.y} Bar` } } } }
-    });
-  }
+  charts.pressure = new Chart(document.getElementById('pressureChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'Pressure', data:{{ pressure|tojson }}, borderColor:'#0891b2', backgroundColor:'rgba(8,145,178,0.06)', fill:true, tension:0.3 }
+    ]}, options: opts
+  });
 
-  if (HAS.flow) {
-    charts.flow = new Chart(document.getElementById('flowChart'), {
-      type:'line', data:{ labels, datasets:[
-        { label:'Flow', data:{{ flow|tojson }}, borderColor:'#059669', backgroundColor:'rgba(5,150,105,0.06)', fill:true, tension:0.3 }
-      ]}, options: { ...opts, plugins:{ ...opts.plugins, tooltip:{ ...opts.plugins.tooltip, callbacks:{ label: ctx => `Flow: ${ctx.parsed.y} m³/h` } } } }
-    });
-  }
+  charts.flow = new Chart(document.getElementById('flowChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'Flow', data:{{ flow|tojson }}, borderColor:'#059669', backgroundColor:'rgba(5,150,105,0.06)', fill:true, tension:0.3 }
+    ]}, options: opts
+  });
 
-  if (HAS.frequency) {
-    charts.frequency = new Chart(document.getElementById('frequencyChart'), {
-      type:'line', data:{ labels, datasets:[
-        { label:'Frequency (Hz)', data:{{ frequency|tojson }}, borderColor:'#7c3aed', backgroundColor:'rgba(124,58,237,0.06)', fill:true, tension:0.3 }
-      ]}, options: { ...opts, plugins:{ ...opts.plugins, tooltip:{ ...opts.plugins.tooltip, callbacks:{ label: ctx => `Frequency: ${ctx.parsed.y} Hz` } } } }
-    });
-  }
+  charts.frequency = new Chart(document.getElementById('frequencyChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'Frequency (Hz)', data:{{ frequency|tojson }}, borderColor:'#7c3aed', backgroundColor:'rgba(124,58,237,0.06)', fill:true, tension:0.3 }
+    ]}, options: opts
+  });
 
-  if (HAS.signal) {
-    charts.signal = new Chart(document.getElementById('signalChart'), {
-      type:'line', data:{ labels, datasets:[
-        { label:'Signal Strength', data:{{ signal|tojson }}, borderColor:'#d97706', backgroundColor:'rgba(217,119,6,0.06)', fill:true, tension:0.3 }
-      ]}, options: { ...opts, plugins:{ ...opts.plugins, tooltip:{ ...opts.plugins.tooltip, callbacks:{ label: ctx => `Signal: ${ctx.parsed.y} dBm` } } } }
-    });
-  }
+  charts.signal = new Chart(document.getElementById('signalChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'Signal Strength', data:{{ signal|tojson }}, borderColor:'#d97706', backgroundColor:'rgba(217,119,6,0.06)', fill:true, tension:0.3 }
+    ]}, options: opts
+  });
 
-  if (HAS.pack) {
-    charts.pack = new Chart(document.getElementById('packChart'), {
-      type:'line', data:{ labels, datasets:[
-        { label:'Pack Count', data:{{ pack_count_graph|tojson }}, borderColor:'#3b7ef8', backgroundColor:'rgba(59,126,248,0.06)', fill:true, tension:0.2 }
-      ]}, options: opts
-    });
-  }
+  charts.pack = new Chart(document.getElementById('packChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'Pack Count', data:{{ pack_count_graph|tojson }}, borderColor:'#3b7ef8', backgroundColor:'rgba(59,126,248,0.06)', fill:true, tension:0.2 }
+    ]}, options: opts
+  });
 
-  if (HAS.network) {
-    const netOpts = makeOptions();
-    netOpts.scales.y = {
-      ...netOpts.scales.y,
-      min:1, max:5,
-      ticks:{ color:getThemeColors().tick, callback: v => v===4?'4G':v===2?'2G':'' }
-    };
-    charts.network = new Chart(document.getElementById('networkChart'), {
-      type:'line', data:{ labels, datasets:[
-        { label:'Network Type', data:{{ network_numeric|tojson }}, borderColor:'#0891b2', backgroundColor:'rgba(8,145,178,0.06)', fill:true, tension:0.1, stepped:true }
-      ]}, options: netOpts
-    });
-  }
+  const netOpts = makeOptions();
+  netOpts.scales.y = {
+    ...netOpts.scales.y,
+    min:1, max:5,
+    ticks:{ color:getThemeColors().tick, callback: v => v===4?'4G':v===2?'2G':'' }
+  };
+  charts.network = new Chart(document.getElementById('networkChart'), {
+    type:'line', data:{ labels, datasets:[
+      { label:'Network Type', data:{{ network_numeric|tojson }}, borderColor:'#0891b2', backgroundColor:'rgba(8,145,178,0.06)', fill:true, tension:0.1, stepped:true }
+    ]}, options: netOpts
+  });
 }
 
 buildCharts();
