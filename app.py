@@ -1,11 +1,25 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, session
 import pandas as pd
 import io
 import os
 import gc
+from flask import jsonify
+import tempfile
 
 app = Flask(__name__)
+app.secret_key = "taroconnect-secret-key-2024"
 
+import threading
+_progress_lock = threading.Lock()
+progress_data = {
+    "percent": 0,
+    "status": "Idle"
+}
+
+def set_progress(percent, status):
+    with _progress_lock:
+        progress_data["percent"] = percent
+        progress_data["status"]  = status
 # ═══════════════════════════════════════════════════════
 # CONSTANTS
 # ═══════════════════════════════════════════════════════
@@ -161,15 +175,62 @@ def compute_stats(df):
             severity = ("critical" if code in CRITICAL_ERRORS else
                         "warning"  if code in WARNING_ERRORS  else "info")
             error_summary[f"{code} - {desc}"] = {"count": count, "severity": severity}
+    
+    # Actual runtime by mode (Motor ON time only)
+    mode_runtime = {}
 
+    if all(col in df.columns for col in [
+    "ModeOfOperating",
+    "MotorRunningStatus",
+    "QueuedTime-IST"
+    ]):
+
+      ts = pd.to_datetime(df["QueuedTime-IST"], errors="coerce")
+
+    for i in range(len(df) - 1):
+
+        running = str(df.iloc[i]["MotorRunningStatus"]).strip().upper()
+
+        if running not in ["1", "TRUE", "YES", "ON"]:
+            continue
+
+        try:
+            mode = int(df.iloc[i]["ModeOfOperating"])
+        except:
+            continue
+
+        if pd.isna(ts.iloc[i]) or pd.isna(ts.iloc[i + 1]):
+            continue
+
+        diff = (ts.iloc[i + 1] - ts.iloc[i]).total_seconds() / 60
+
+        if diff <= 0:
+            continue
+
+        mode_runtime[mode] = mode_runtime.get(mode, 0) + diff
+
+# Mode summary
     mode_summary = {}
+
     if "ModeOfOperating" in df.columns:
-        for code, count in df["ModeOfOperating"].value_counts().items():
-            try:    code_int = int(code)
-            except: code_int = -1
-            mode_summary[MODE_DESCRIPTIONS.get(code_int, f"Unknown Mode ({code})")] = {
-                "code": code_int, "count": count, "icon": MODE_ICONS.get(code_int, "❓")
-            }
+      for code, count in df["ModeOfOperating"].value_counts().items():
+
+        try:
+            code_int = int(code)
+        except:
+            code_int = -1
+
+        mode_summary[
+            MODE_DESCRIPTIONS.get(code_int, f"Unknown Mode ({code})")
+        ] = {
+            "code": code_int,
+            "count": count,
+            "icon": MODE_ICONS.get(code_int, "❓"),
+            "duration": minutes_to_dhm(
+                mode_runtime.get(code_int, 0)
+            )
+        }
+
 
     def _s(col): return df[col] if col in df.columns else pd.Series(dtype=float)
 
@@ -186,6 +247,7 @@ def compute_stats(df):
     p_min,    p_max,    p_avg    = col_stats(_s("Pressure"))
     f_min,    f_max,    f_avg    = col_stats(_s("Flow Sensor"))
     freq_min, freq_max, freq_avg = col_stats(_s("Frequency"))
+    sig_min,  sig_max,  sig_avg  = col_stats(_s("Signal"))
 
     pack_count_total = 0
     if "PackCount" in df.columns:
@@ -200,10 +262,29 @@ def compute_stats(df):
     network_pct_4g = round(net_4g_count / max(net_4g_count + net_2g_count, 1) * 100, 1)
 
     total_runtime = 0
-    if "Total Running Time" in df.columns:
-        diff = pd.to_numeric(df["Total Running Time"], errors="coerce").diff().fillna(0)
-        total_runtime = float(diff[diff > 0].sum())
 
+    if all(col in df.columns for col in [
+    "MotorRunningStatus",
+    "QueuedTime-IST"
+    ]):
+
+      ts = pd.to_datetime(df["QueuedTime-IST"], errors="coerce")
+
+    for i in range(len(df) - 1):
+
+        running = str(df.iloc[i]["MotorRunningStatus"]).strip().upper()
+
+        if running not in ["1", "TRUE", "YES", "ON"]:
+            continue
+
+        if pd.isna(ts.iloc[i]) or pd.isna(ts.iloc[i + 1]):
+            continue
+
+        diff = (ts.iloc[i + 1] - ts.iloc[i]).total_seconds() / 60
+
+        if diff > 0:
+            total_runtime += diff
+            
     # Health score
     score = 100.0
     for key, val in error_summary.items():
@@ -264,6 +345,7 @@ def compute_stats(df):
         p_min=p_min, p_max=p_max, p_avg=p_avg,
         f_min=f_min, f_max=f_max, f_avg=f_avg,
         freq_min=freq_min, freq_max=freq_max, freq_avg=freq_avg,
+        sig_min=sig_min, sig_max=sig_max, sig_avg=sig_avg,
         pack_count_total=pack_count_total, net_4g_count=net_4g_count,
         net_2g_count=net_2g_count, network_pct_4g=network_pct_4g,
         total_runtime=total_runtime, health_score=health_score,
@@ -280,6 +362,16 @@ def compute_charts(df):
         if col not in df.columns:
             return []
         return downsample_series(df[col])
+
+    def _has_data(*cols):
+        """True if at least one col exists and has non-zero numeric data."""
+        for col in cols:
+            if col not in df.columns:
+                continue
+            s = pd.to_numeric(df[col], errors="coerce").dropna()
+            if len(s) > 0 and s.abs().sum() > 0:
+                return True
+        return False
 
     time_labels = []
     if "QueuedTime-IST" in df.columns:
@@ -299,6 +391,15 @@ def compute_charts(df):
         frequency=_ds("Frequency"),     signal=_ds("Signal"),
         pack_count_graph=_ds("PackCount"),
         network_numeric=net_numeric,
+        # ── availability flags ──────────────────────────────────────────
+        has_voltage  =_has_data("Line Voltage", "Line Voltage 2", "Line Voltage 3"),
+        has_current  =_has_data("Current Amp",  "Current Amp2",   "Current Amp3"),
+        has_pressure =_has_data("Pressure"),
+        has_flow     =_has_data("Flow Sensor"),
+        has_frequency=_has_data("Frequency"),
+        has_signal   =_has_data("Signal"),
+        has_pack     =_has_data("PackCount"),
+        has_network  ="NetType" in df.columns and len(net_numeric) > 0,
     )
 
 
@@ -311,40 +412,147 @@ def home():
     return render_template("index.html")
 
 
+@app.route("/progress")
+def progress():
+    return jsonify(progress_data)
+
+
 @app.route("/upload", methods=["POST"])
 def upload():
-
     file = request.files.get("file")
     ok, msg = validate_upload(file)
     if not ok:
         return render_template("index.html", upload_error=msg)
 
     filename = file.filename
+    set_progress(5, "Uploading File...")
     try:
         ext    = os.path.splitext(filename)[1].lower()
         engine = "xlrd" if ext == ".xls" else "openpyxl"
-        buf    = io.BytesIO(file.read())
+        file_bytes = file.read()
         del file
     except Exception as e:
+        set_progress(0, "Idle")
         return render_template("index.html", upload_error=f"Could not read file: {e}")
+
+    set_progress(15, "Reading date range from Excel...")
+
+    # Read only the date column to find available date range
+    try:
+        buf = io.BytesIO(file_bytes)
+        buf.seek(0)
+        header = pd.read_excel(buf, engine=engine, nrows=0)
+        if "QueuedTime-IST" in header.columns:
+            buf.seek(0)
+            date_df = pd.read_excel(buf, engine=engine, usecols=["QueuedTime-IST"])
+            ts = pd.to_datetime(date_df["QueuedTime-IST"], errors="coerce").dropna()
+            del date_df
+            min_date = ts.min().strftime('%Y-%m-%d') if not ts.empty else None
+            max_date = ts.max().strftime('%Y-%m-%d') if not ts.empty else None
+            total_rows = len(ts)
+        else:
+            min_date = max_date = None
+            total_rows = 0
+        del buf
+        gc.collect()
+    except Exception as e:
+        min_date = max_date = None
+        total_rows = 0
+
+    # Save file bytes to a temp file on disk (session can't hold large bytes)
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1])
+    tmp.write(file_bytes)
+    tmp.close()
+    del file_bytes
+
+    # Store temp path + metadata in session
+    session["tmp_path"]   = tmp.name
+    session["filename"]   = filename
+    session["engine"]     = engine
+    session["min_date"]   = min_date
+    session["max_date"]   = max_date
+    session["total_rows"] = total_rows
+
+    set_progress(25, "File ready — select date range...")
+
+    return render_template(
+        "date_range.html",
+        filename=filename,
+        min_date=min_date,
+        max_date=max_date,
+        total_rows=total_rows,
+    )
+
+
+@app.route("/process", methods=["POST"])
+def process():
+    tmp_path  = session.get("tmp_path")
+    filename  = session.get("filename", "report.xlsx")
+    engine    = session.get("engine", "openpyxl")
+    min_date  = session.get("min_date")
+    max_date  = session.get("max_date")
+
+    if not tmp_path or not os.path.exists(tmp_path):
+        return render_template("index.html", upload_error="Session expired. Please upload again.")
+
+    use_filter  = request.form.get("filter_type") == "range"
+    date_from   = request.form.get("date_from", "")
+    date_to     = request.form.get("date_to", "")
+
+    set_progress(30, "Reading Excel...")
+    try:
+        with open(tmp_path, "rb") as f:
+            buf = io.BytesIO(f.read())
+    except Exception as e:
+        set_progress(0, "Idle")
+        return render_template("index.html", upload_error=f"Could not read temp file: {e}")
 
     # ── PASS 1 : stats columns only ───────────────────
     try:
-        df1   = read_excel_cols(buf, engine, STATS_COLS)
+        df1 = read_excel_cols(buf, engine, STATS_COLS)
+
+        # Apply date filter if requested
+        if use_filter and date_from and date_to and "QueuedTime-IST" in df1.columns:
+            df1["QueuedTime-IST"] = pd.to_datetime(df1["QueuedTime-IST"], errors="coerce")
+            mask = (df1["QueuedTime-IST"] >= pd.Timestamp(date_from)) & \
+                   (df1["QueuedTime-IST"] <= pd.Timestamp(date_to) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1))
+            df1 = df1[mask].reset_index(drop=True)
+
+        set_progress(50, "Calculating Statistics...")
         stats = compute_stats(df1)
         del df1
         gc.collect()
     except Exception as e:
+        set_progress(0, "Idle")
         return render_template("index.html", upload_error=f"Could not process file: {e}")
+
+    set_progress(70, "Generating Charts...")
 
     # ── PASS 2 : chart columns only ───────────────────
     try:
-        df2    = read_excel_cols(buf, engine, CHART_COLS)
+        df2 = read_excel_cols(buf, engine, CHART_COLS)
+
+        if use_filter and date_from and date_to and "QueuedTime-IST" in df2.columns:
+            df2["QueuedTime-IST"] = pd.to_datetime(df2["QueuedTime-IST"], errors="coerce")
+            mask = (df2["QueuedTime-IST"] >= pd.Timestamp(date_from)) & \
+                   (df2["QueuedTime-IST"] <= pd.Timestamp(date_to) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1))
+            df2 = df2[mask].reset_index(drop=True)
+
         charts = compute_charts(df2)
         del df2, buf
         gc.collect()
     except Exception as e:
+        set_progress(0, "Idle")
         return render_template("index.html", upload_error=f"Could not build charts: {e}")
+
+    # Cleanup temp file
+    try:
+        os.unlink(tmp_path)
+        session.pop("tmp_path", None)
+    except:
+        pass
+
+    set_progress(90, "Building Dashboard...")
 
     # ── Derived display values ─────────────────────────
     hs = stats["health_score"]
@@ -381,14 +589,17 @@ def upload():
             "text": f"High motor start count ({stats['start_count']}). Consider investigating frequent cycling."})
 
     qf = stats["quality_findings"]
-
-    # Override computed fields before spreading stats
     stats["pack_count_total"] = int(stats["pack_count_total"])
     stats["running_time"]     = minutes_to_dhm(stats["total_runtime"])
+
+    set_progress(100, "Dashboard Ready!")
 
     return render_template(
         "dashboard.html",
         filename=filename,
+        filter_applied=use_filter,
+        filter_from=date_from if use_filter else min_date,
+        filter_to=date_to if use_filter else max_date,
         **stats,
         **charts,
         health_label=health_label, health_color=health_color,
