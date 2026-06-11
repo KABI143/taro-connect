@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Taro Connect — Device Analytics Dashboard</title>
+<link rel="icon" type="image/png" href="/static/images/taroconnect.png">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════
    LIGHT THEME (default)
@@ -54,7 +55,7 @@
 html { scroll-behavior:smooth }
 body {
   background: var(--bg); color: var(--text);
-  font-family:'DM Sans',sans-serif; font-size:14px;
+  font-family:'Inter',sans-serif; font-size:14px;
   min-height:100vh; transition: background 0.3s, color 0.3s;
 }
 body::before {
@@ -80,8 +81,8 @@ body::before {
   border:1px solid var(--border2); border-bottom:1px solid var(--accent2);
   animation:spin 1.5s linear infinite reverse;
 }
-.pl-title { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:var(--text); }
-.pl-sub   { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); animation:blink 1.4s step-end infinite; }
+.pl-title { font-family:'Inter',sans-serif; font-size:18px; font-weight:700; letter-spacing:3px; text-transform:uppercase; color:var(--text); }
+.pl-sub   { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); animation:blink 1.4s step-end infinite; }
 @keyframes spin  { to { transform:rotate(360deg) } }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
@@ -104,17 +105,17 @@ body::before {
 }
 .topbar-logo  { width:38px; height:38px; object-fit:contain; border-radius:8px; }
 .topbar-brand { flex:1; }
-.topbar-title { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; color:var(--text); letter-spacing:-0.3px; line-height:1; }
-.topbar-sub   { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; margin-top:3px; }
+.topbar-title { font-family:'Inter',sans-serif; font-size:18px; font-weight:800; color:var(--text); letter-spacing:-0.3px; line-height:1; }
+.topbar-sub   { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted); letter-spacing:1px; margin-top:3px; }
 .topbar-right { display:flex; align-items:center; gap:10px; }
 .sys-time {
-  font-family:'DM Mono',monospace; font-size:12px; color:var(--cyan);
+  font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--cyan);
   background:rgba(8,145,178,0.07); border:1px solid rgba(8,145,178,0.18);
   border-radius:6px; padding:4px 10px;
 }
 .back-btn {
   background:var(--card); border:1px solid var(--border2); color:var(--text);
-  padding:7px 14px; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600;
+  padding:7px 14px; font-family:'Inter',sans-serif; font-size:12px; font-weight:600;
   letter-spacing:1px; text-transform:uppercase; text-decoration:none;
   cursor:pointer; border-radius:8px; transition:all 0.2s;
 }
@@ -127,6 +128,7 @@ body::before {
 .theme-btn:hover { border-color:var(--accent); color:var(--accent); }
 
 /* ── INFO BAR ── */
+.info-bar-inner { display:flex; width:100%; max-width:1600px; margin:0 auto; }
 .info-bar {
   background:var(--surface); border-bottom:1px solid var(--border);
   padding:0 28px; display:flex; box-shadow:0 1px 4px rgba(0,0,0,0.03);
@@ -134,22 +136,22 @@ body::before {
 .info-item { flex:1; padding:12px 20px; border-right:1px solid var(--border); }
 .info-item:first-child { padding-left:0; }
 .info-item:last-child  { border-right:none; }
-.info-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
-.info-val   { font-family:'Syne',sans-serif; font-size:14px; font-weight:700; color:var(--text); }
+.info-label { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
+.info-val   { font-family:'Inter',sans-serif; font-size:14px; font-weight:700; color:var(--text); }
 .info-val.blue  { color:var(--accent); }
 .info-val.cyan  { color:var(--cyan);   }
 .info-val.green { color:var(--green);  }
 
 /* ── LAYOUT ── */
-.content { padding:28px; max-width:1600px; }
+.content { padding:28px; max-width:1600px; margin:0 auto; width:100%; }
 
 .section-head { display:flex; align-items:center; gap:12px; margin-bottom:18px; margin-top:36px; }
 .section-head:first-child { margin-top:0; }
 .sh-bar   { width:3px; height:20px; background:linear-gradient(180deg,var(--accent),var(--accent2)); border-radius:2px; flex-shrink:0; }
-.sh-title { font-family:'Syne',sans-serif; font-size:17px; font-weight:700; color:var(--text); }
+.sh-title { font-family:'Inter',sans-serif; font-size:17px; font-weight:700; color:var(--text); }
 .sh-line  { flex:1; height:1px; background:var(--border); }
 .sh-tag   {
-  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted);
+  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; color:var(--muted);
   text-transform:uppercase; background:var(--surface); border:1px solid var(--border);
   border-radius:4px; padding:3px 8px;
 }
@@ -176,10 +178,10 @@ body::before {
 .kpi-card.cyan::after  { background:linear-gradient(90deg,var(--cyan),#6366f1); }
 .kpi-card.purple::after{ background:linear-gradient(90deg,var(--purple),var(--accent2)); }
 
-.kpi-label { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
-.kpi-value { font-family:'Syne',sans-serif; font-size:34px; font-weight:800; color:var(--text); line-height:1; letter-spacing:-1px; }
-.kpi-unit  { font-family:'DM Sans',sans-serif; font-size:11px; color:var(--muted); margin-top:6px; }
-.kpi-icon  { position:absolute; bottom:14px; right:16px; font-size:24px; opacity:0.07; }
+.kpi-label { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+.kpi-value { font-family:'Inter',sans-serif; font-size:34px; font-weight:800; color:var(--text); line-height:1; letter-spacing:-1px; }
+.kpi-unit  { font-family:'Inter',sans-serif; font-size:11px; color:var(--muted); margin-top:6px; }
+.kpi-icon  { position:absolute; bottom:12px; right:14px; font-size:36px; opacity:0.20; line-height:1; }
 
 /* ── HEALTH CARD ── */
 .health-card {
@@ -208,14 +210,14 @@ body::before {
   position:absolute; inset:0; display:flex; flex-direction:column;
   align-items:center; justify-content:center;
 }
-.health-pct   { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; color:var(--text); line-height:1; }
-.health-sub   { font-family:'DM Mono',monospace; font-size:8px; color:var(--muted); letter-spacing:1px; margin-top:2px; }
+.health-pct   { font-family:'Inter',sans-serif; font-size:22px; font-weight:800; color:var(--text); line-height:1; }
+.health-sub   { font-family:'JetBrains Mono',monospace; font-size:8px; color:var(--muted); letter-spacing:1px; margin-top:2px; }
 .health-info  { flex:1; }
-.health-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:var(--text); margin-bottom:6px; }
-.health-desc  { font-family:'DM Sans',sans-serif; font-size:13px; color:var(--muted); line-height:1.6; }
+.health-title { font-family:'Inter',sans-serif; font-size:20px; font-weight:800; color:var(--text); margin-bottom:6px; }
+.health-desc  { font-family:'Inter',sans-serif; font-size:13px; color:var(--muted); line-height:1.6; }
 .health-badge {
   display:inline-block; margin-top:10px;
-  font-family:'DM Mono',monospace; font-size:10px; letter-spacing:2px;
+  font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:2px;
   text-transform:uppercase; padding:4px 12px; border-radius:20px; font-weight:600;
 }
 .health-badge.green  { background:rgba(5,150,105,0.1);  color:var(--green); border:1px solid rgba(5,150,105,0.2); }
@@ -230,7 +232,7 @@ body::before {
 }
 .summary-head {
   background:var(--card2); border-bottom:1px solid var(--border);
-  padding:14px 20px; font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
+  padding:14px 20px; font-family:'Inter',sans-serif; font-size:13px; font-weight:700;
   color:var(--text); display:flex; align-items:center; gap:10px;
 }
 .summary-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; }
@@ -254,11 +256,11 @@ body::before {
   padding:16px 18px; box-shadow:0 2px 6px rgba(0,0,0,0.03); transition:all 0.2s;
 }
 .minmax-card:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(59,126,248,0.08); }
-.minmax-title { font-family:'Syne',sans-serif; font-size:12px; font-weight:700; color:var(--text); margin-bottom:12px; }
+.minmax-title { font-family:'Inter',sans-serif; font-size:12px; font-weight:700; color:var(--text); margin-bottom:12px; }
 .minmax-row   { display:flex; gap:8px; }
 .minmax-item  { flex:1; background:var(--card); border-radius:8px; padding:8px 10px; text-align:center; }
-.minmax-lbl   { font-family:'DM Mono',monospace; font-size:8px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
-.minmax-val   { font-family:'Syne',sans-serif; font-size:15px; font-weight:700; }
+.minmax-lbl   { font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-bottom:4px; }
+.minmax-val   { font-family:'Inter',sans-serif; font-size:15px; font-weight:700; }
 .minmax-val.mn { color:var(--cyan); }
 .minmax-val.mx { color:var(--red);  }
 .minmax-val.av { color:var(--green);}
@@ -272,28 +274,28 @@ body::before {
 }
 .quality-head {
   background:var(--card2); border-bottom:1px solid var(--border);
-  padding:14px 20px; font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
+  padding:14px 20px; font-family:'Inter',sans-serif; font-size:13px; font-weight:700;
   color:var(--text); display:flex; align-items:center; gap:10px;
 }
 .quality-stats { display:flex; gap:0; border-bottom:1px solid var(--border); }
 .qstat { flex:1; padding:12px; text-align:center; border-right:1px solid var(--border); }
 .qstat:last-child { border-right:none; }
-.qstat-val { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; }
+.qstat-val { font-family:'Inter',sans-serif; font-size:22px; font-weight:800; }
 .qstat-val.ok   { color:var(--green); }
 .qstat-val.warn { color:var(--gold);  }
 .qstat-val.miss { color:var(--red);   }
-.qstat-lbl { font-family:'DM Mono',monospace; font-size:9px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-top:3px; }
+.qstat-lbl { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-top:3px; }
 .quality-list { padding:4px 0; }
 .qitem { display:flex; align-items:center; gap:12px; padding:10px 18px; border-bottom:1px solid var(--border); }
 .qitem:last-child { border-bottom:none; }
 .qitem-icon { font-size:14px; flex-shrink:0; }
-.qitem-field { font-family:'DM Mono',monospace; font-size:11px; color:var(--text); width:130px; flex-shrink:0; }
+.qitem-field { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--text); width:130px; flex-shrink:0; }
 .qitem-bar-wrap { flex:1; background:var(--border); border-radius:4px; height:6px; overflow:hidden; }
 .qitem-bar { height:100%; border-radius:4px; transition:width 1s ease; }
 .qitem-bar.ok   { background:var(--green); }
 .qitem-bar.warn { background:var(--gold);  }
 .qitem-bar.miss { background:var(--red);   width:100% !important; }
-.qitem-msg { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); width:160px; text-align:right; flex-shrink:0; }
+.qitem-msg { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); width:160px; text-align:right; flex-shrink:0; }
 
 /* ── TABLES ── */
 .table-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
@@ -302,7 +304,7 @@ body::before {
 .data-table-box { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.03); }
 .dtb-head {
   background:var(--card2); border-bottom:1px solid var(--border); padding:14px 20px;
-  font-family:'Syne',sans-serif; font-size:13px; font-weight:700;
+  font-family:'Inter',sans-serif; font-size:13px; font-weight:700;
   color:var(--text); display:flex; align-items:center; gap:10px;
 }
 .dtb-dot { width:8px; height:8px; border-radius:50%; background:var(--accent); flex-shrink:0; }
@@ -311,17 +313,17 @@ body::before {
 table { width:100%; border-collapse:collapse; }
 table th {
   background:var(--card); color:var(--muted);
-  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase;
+  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase;
   padding:10px 16px; text-align:left; border-bottom:1px solid var(--border);
 }
 table td { padding:10px 16px; border-bottom:1px solid var(--border); font-size:13px; color:var(--text); }
 table tr:last-child td { border-bottom:none; }
 table tr:hover td { background:rgba(59,126,248,0.025); }
 
-.td-count { font-family:'DM Mono',monospace; color:var(--cyan); font-size:13px; }
-.td-code  { font-family:'DM Mono',monospace; color:var(--muted); font-size:11px; }
+.td-count { font-family:'JetBrains Mono',monospace; color:var(--cyan); font-size:13px; }
+.td-code  { font-family:'JetBrains Mono',monospace; color:var(--muted); font-size:11px; }
 .sev-badge {
-  display:inline-block; font-family:'DM Mono',monospace; font-size:9px;
+  display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px;
   letter-spacing:1px; text-transform:uppercase; padding:3px 8px; border-radius:4px; font-weight:600;
 }
 .sev-critical { background:rgba(220,38,38,0.1);   color:var(--red);    border:1px solid rgba(220,38,38,0.2); }
@@ -329,7 +331,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
 .sev-info     { background:rgba(59,126,248,0.08); color:var(--accent); border:1px solid rgba(59,126,248,0.15); }
 .mode-badge {
   display:inline-flex; align-items:center; gap:5px;
-  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:1px;
+  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1px;
   text-transform:uppercase; padding:3px 8px; border-radius:4px;
   background:rgba(5,150,105,0.08); color:var(--green); border:1px solid rgba(5,150,105,0.18);
 }
@@ -338,9 +340,9 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
 .chart-panel { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin-bottom:16px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.03); }
 .chart-head  { background:var(--card2); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; gap:10px; }
 .ch-indicator { width:3px; height:18px; border-radius:2px; flex-shrink:0; }
-.ch-title { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; color:var(--text); flex:1; }
+.ch-title { font-family:'Inter',sans-serif; font-size:13px; font-weight:700; color:var(--text); flex:1; }
 .ch-badge {
-  font-family:'DM Mono',monospace; font-size:9px; letter-spacing:1.5px; color:var(--muted);
+  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.5px; color:var(--muted);
   background:var(--surface); border:1px solid var(--border2); border-radius:4px; padding:3px 8px;
 }
 .chart-body { padding:20px; }
@@ -351,7 +353,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
 .no-data-msg {
   padding: 40px 20px;
   text-align: center;
-  font-family: 'DM Mono', monospace;
+  font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
   color: var(--muted);
   letter-spacing: 1px;
@@ -361,13 +363,56 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
   background: var(--card);
 }
 
+/* ── CHART STAT FOOTER ── */
+.chart-stats-bar {
+  display:flex; gap:0; border-top:1px solid var(--border); background:var(--card);
+  border-radius:0 0 14px 14px; overflow:hidden;
+}
+.chart-stat-item {
+  flex:1; padding:10px 14px; text-align:center; border-right:1px solid var(--border);
+}
+.chart-stat-item:last-child { border-right:none; }
+.csi-lbl { font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-bottom:3px; }
+.csi-val { font-family:'Inter',sans-serif; font-size:14px; font-weight:700; }
+.csi-val.mn { color:var(--cyan); }
+.csi-val.av { color:var(--green); }
+.csi-val.mx { color:var(--red); }
+
+/* ── DURATION SUMMARY SECTION ── */
+.dur-summary-grid {
+  display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:0;
+}
+@media(max-width:1100px){ .dur-summary-grid{grid-template-columns:repeat(3,1fr)} }
+@media(max-width:700px) { .dur-summary-grid{grid-template-columns:repeat(2,1fr)} }
+
+.dur-card {
+  background:var(--surface); border:1px solid var(--border); border-radius:14px;
+  padding:18px 16px; position:relative; overflow:hidden; transition:all 0.2s;
+  box-shadow:0 2px 8px rgba(0,0,0,0.04);
+}
+.dur-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(59,126,248,0.1); }
+.dur-card::after {
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  border-radius:14px 14px 0 0;
+}
+.dur-card.green::after  { background:linear-gradient(90deg,var(--green),#10b981); }
+.dur-card.cyan::after   { background:linear-gradient(90deg,var(--cyan),#6366f1); }
+.dur-card.gold::after   { background:linear-gradient(90deg,var(--gold),#f59e0b); }
+.dur-card.red::after    { background:linear-gradient(90deg,var(--red),#f97316); }
+.dur-card.purple::after { background:linear-gradient(90deg,var(--purple),var(--accent2)); }
+
+.dur-label { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+.dur-value { font-family:'Inter',sans-serif; font-size:16px; font-weight:800; color:var(--text); line-height:1.2; letter-spacing:-0.5px; }
+.dur-icon  { position:absolute; bottom:10px; right:12px; font-size:28px; opacity:0.18; line-height:1; }
+
 /* ── FOOTER ── */
 .footer {
   background:var(--surface); border-top:1px solid var(--border);
   padding:16px 28px; display:flex; align-items:center; justify-content:space-between; margin-top:16px;
 }
-.footer-text   { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:1px; }
-.footer-status { display:flex; align-items:center; gap:7px; font-family:'DM Mono',monospace; font-size:10px; color:var(--green); }
+.footer-text   { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:1px; }
+.footer-status { display:flex; align-items:center; gap:7px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--green); }
 .footer-status::before {
   content:''; width:6px; height:6px; border-radius:50%; background:var(--green);
   animation:pulse-live 2s ease-in-out infinite;
@@ -401,6 +446,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
 
   <!-- INFO BAR -->
   <div class="info-bar">
+    <div class="info-bar-inner">
     <div class="info-item">
       <div class="info-label">Device ID</div>
       <div class="info-val blue">{{ device_id }}</div>
@@ -424,6 +470,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
     <div class="info-item">
       <div class="info-label">Status</div>
       <div class="info-val green">✓ Complete</div>
+    </div>
     </div>
   </div>
 
@@ -536,6 +583,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="minmax-title">⚡ R-Phase Voltage (L1)</div>
         <div class="minmax-row">
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ v1_min }} V</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ v1_avg }} V</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ v1_max }} V</div></div>
         </div>
       </div>
@@ -543,6 +591,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="minmax-title">⚡ Y-Phase Voltage (L2)</div>
         <div class="minmax-row">
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ v2_min }} V</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ v2_avg }} V</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ v2_max }} V</div></div>
         </div>
       </div>
@@ -550,6 +599,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="minmax-title">⚡ B-Phase Voltage (L3)</div>
         <div class="minmax-row">
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ v3_min }} V</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ v3_avg }} V</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ v3_max }} V</div></div>
         </div>
       </div>
@@ -568,6 +618,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="minmax-title">〜 R-Phase Current (A1)</div>
         <div class="minmax-row">
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ c1_min }} A</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ c1_avg }} A</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ c1_max }} A</div></div>
         </div>
       </div>
@@ -575,6 +626,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="minmax-title">〜 Y-Phase Current (A2)</div>
         <div class="minmax-row">
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ c2_min }} A</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ c2_avg }} A</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ c2_max }} A</div></div>
         </div>
       </div>
@@ -582,6 +634,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="minmax-title">〜 B-Phase Current (A3)</div>
         <div class="minmax-row">
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ c3_min }} A</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ c3_avg }} A</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ c3_max }} A</div></div>
         </div>
       </div>
@@ -592,7 +645,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       <div class="sh-bar"></div>
       <div class="sh-title">Process Parameter Stats</div>
       <div class="sh-line"></div>
-      <div class="sh-tag">Pressure · Flow · Frequency</div>
+      <div class="sh-tag">Pressure · Flow · Frequency · Signal</div>
     </div>
 
     <div class="minmax-grid">
@@ -618,6 +671,14 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ freq_min }}</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ freq_avg }}</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ freq_max }}</div></div>
+        </div>
+      </div>
+      <div class="minmax-card">
+        <div class="minmax-title">📶 Signal Strength</div>
+        <div class="minmax-row">
+          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ sig_min }} dBm</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ sig_avg }} dBm</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ sig_max }} dBm</div></div>
         </div>
       </div>
     </div>
@@ -723,6 +784,18 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="ch-badge">3-PHASE · V</div>
       </div>
       <div class="chart-body"><canvas id="voltageChart" height="90"></canvas></div>
+      <div class="chart-stats-bar">
+        <div class="chart-stat-item"><div class="csi-lbl">R-Phase Min</div><div class="csi-val mn">{{ v1_min }} V</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">R-Phase Avg</div><div class="csi-val av">{{ v1_avg }} V</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">R-Phase Max</div><div class="csi-val mx">{{ v1_max }} V</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Y-Phase Min</div><div class="csi-val mn">{{ v2_min }} V</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Y-Phase Avg</div><div class="csi-val av">{{ v2_avg }} V</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Y-Phase Max</div><div class="csi-val mx">{{ v2_max }} V</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">B-Phase Min</div><div class="csi-val mn">{{ v3_min }} V</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">B-Phase Avg</div><div class="csi-val av">{{ v3_avg }} V</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">B-Phase Max</div><div class="csi-val mx">{{ v3_max }} V</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Overall Avg</div><div class="csi-val av">{{ avg_voltage }} V</div></div>
+      </div>
     </div>
     {% else %}
     <div class="chart-panel"><div class="no-data-msg">⚡ Voltage data not available in this report</div></div>
@@ -736,6 +809,18 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="ch-badge">3-PHASE · A</div>
       </div>
       <div class="chart-body"><canvas id="currentChart" height="90"></canvas></div>
+      <div class="chart-stats-bar">
+        <div class="chart-stat-item"><div class="csi-lbl">R-Phase Min</div><div class="csi-val mn">{{ c1_min }} A</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">R-Phase Avg</div><div class="csi-val av">{{ c1_avg }} A</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">R-Phase Max</div><div class="csi-val mx">{{ c1_max }} A</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Y-Phase Min</div><div class="csi-val mn">{{ c2_min }} A</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Y-Phase Avg</div><div class="csi-val av">{{ c2_avg }} A</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Y-Phase Max</div><div class="csi-val mx">{{ c2_max }} A</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">B-Phase Min</div><div class="csi-val mn">{{ c3_min }} A</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">B-Phase Avg</div><div class="csi-val av">{{ c3_avg }} A</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">B-Phase Max</div><div class="csi-val mx">{{ c3_max }} A</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Overall Avg</div><div class="csi-val av">{{ avg_current }} A</div></div>
+      </div>
     </div>
     {% else %}
     <div class="chart-panel"><div class="no-data-msg">〜 Current data not available in this report</div></div>
@@ -757,6 +842,11 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
           <div class="ch-title">Pressure</div><div class="ch-badge">BAR</div>
         </div>
         <div class="chart-body"><canvas id="pressureChart" height="120"></canvas></div>
+        <div class="chart-stats-bar">
+          <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ p_min }}</div></div>
+          <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ p_avg }}</div></div>
+          <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ p_max }}</div></div>
+        </div>
       </div>
       {% else %}
       <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">🔵 Pressure data not available</div></div>
@@ -768,6 +858,11 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
           <div class="ch-title">Flow Sensor</div><div class="ch-badge">m³/h</div>
         </div>
         <div class="chart-body"><canvas id="flowChart" height="120"></canvas></div>
+        <div class="chart-stats-bar">
+          <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ f_min }}</div></div>
+          <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ f_avg }}</div></div>
+          <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ f_max }}</div></div>
+        </div>
       </div>
       {% else %}
       <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">🟢 Flow data not available</div></div>
@@ -782,6 +877,11 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
           <div class="ch-title">Frequency</div><div class="ch-badge">Hz</div>
         </div>
         <div class="chart-body"><canvas id="frequencyChart" height="120"></canvas></div>
+        <div class="chart-stats-bar">
+          <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ freq_min }} Hz</div></div>
+          <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ freq_avg }} Hz</div></div>
+          <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ freq_max }} Hz</div></div>
+        </div>
       </div>
       {% else %}
       <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">🟣 Frequency data not available</div></div>
@@ -793,6 +893,11 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
           <div class="ch-title">Signal Strength</div><div class="ch-badge">dBm</div>
         </div>
         <div class="chart-body"><canvas id="signalChart" height="120"></canvas></div>
+        <div class="chart-stats-bar">
+          <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ sig_min }} dBm</div></div>
+          <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ sig_avg }} dBm</div></div>
+          <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ sig_max }} dBm</div></div>
+        </div>
       </div>
       {% else %}
       <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">📶 Signal data not available</div></div>
@@ -834,6 +939,105 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
 
   </div>
 
+  <!-- ═══ SECTION: ERROR DURATION ═══ -->
+  <div class="content" style="padding-top:0;">
+
+    <div class="section-head">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Error Duration Breakdown</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">Time Spent in Each Error State</div>
+    </div>
+
+    {% if error_duration_table %}
+    <div class="data-table-box" style="margin-bottom:16px;">
+      <div class="dtb-head"><div class="dtb-dot" style="background:var(--red);"></div>Error Duration by Fault Code</div>
+      <table>
+        <tr><th>Code</th><th>Description</th><th>Severity</th><th>Duration</th></tr>
+        {% for row in error_duration_table %}
+        <tr>
+          <td class="td-code">{{ row.code }}</td>
+          <td>{{ row.desc }}</td>
+          <td><span class="sev-badge sev-{{ row.severity }}">{{ row.severity }}</span></td>
+          <td style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--cyan);">{{ row.duration }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% else %}
+    <div class="chart-panel"><div class="no-data-msg">✅ No error durations recorded — device ran without faults</div></div>
+    {% endif %}
+
+    <!-- ═══ SECTION: FINAL SUMMARY ═══ -->
+    <div class="section-head" style="margin-top:36px;">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Final Duration Summary</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">Complete Log Breakdown</div>
+    </div>
+
+    <div class="dur-summary-grid">
+      <div class="dur-card">
+        <div class="dur-label">Total Log Duration</div>
+        <div class="dur-value">{{ total_log_time }}</div>
+        <div class="dur-icon">📋</div>
+      </div>
+      <div class="dur-card green">
+        <div class="dur-label">Motor Running Duration</div>
+        <div class="dur-value">{{ running_time }}</div>
+        <div class="dur-icon">⚙️</div>
+      </div>
+      <div class="dur-card cyan">
+        <div class="dur-label">Motor Idle Duration</div>
+        <div class="dur-value">{{ idle_time }}</div>
+        <div class="dur-icon">💤</div>
+      </div>
+      <div class="dur-card gold">
+        <div class="dur-label">Error Duration (All Errors)</div>
+        <div class="dur-value">{{ error_time }}</div>
+        <div class="dur-icon">⚠️</div>
+      </div>
+      <div class="dur-card red">
+        <div class="dur-label">Device Offline Duration</div>
+        <div class="dur-value">{{ offline_time }}</div>
+        <div class="dur-icon">📡</div>
+      </div>
+    </div>
+
+    <!-- Duration Visual Bar -->
+    <div class="data-table-box" style="margin-top:16px;">
+      <div class="dtb-head"><div class="dtb-dot" style="background:var(--accent);"></div>Duration Breakdown — Proportional View</div>
+      <div style="padding:20px;">
+        <div style="display:flex; height:32px; border-radius:8px; overflow:hidden; gap:2px;">
+          {% set total_m = total_log_mins if total_log_mins > 0 else 1 %}
+          <div title="Motor Running (No Error): {{ no_error_run_time }}"
+               style="background:var(--green); flex:{{ no_error_running_mins / total_m }}; min-width:2px; transition:flex 1s; border-radius:4px;"></div>
+          <div title="Error Running: {{ error_time }}"
+               style="background:var(--red); flex:{{ error_running_mins / total_m }}; min-width:{% if error_running_mins > 0 %}2{% else %}0{% endif %}px; transition:flex 1s; border-radius:4px;"></div>
+          <div title="Motor Idle: {{ idle_time }}"
+               style="background:var(--cyan); opacity:0.6; flex:{{ motor_idle_mins / total_m }}; min-width:2px; transition:flex 1s; border-radius:4px;"></div>
+          <div title="Device Offline: {{ offline_time }}"
+               style="background:var(--muted); opacity:0.4; flex:{{ offline_mins / total_m }}; min-width:{% if offline_mins > 0 %}2{% else %}0{% endif %}px; transition:flex 1s; border-radius:4px;"></div>
+        </div>
+        <div style="display:flex; gap:24px; margin-top:12px; flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">
+            <span style="width:12px;height:12px;border-radius:3px;background:var(--green);display:inline-block;"></span>Running (No Error)
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">
+            <span style="width:12px;height:12px;border-radius:3px;background:var(--red);display:inline-block;"></span>Running with Error
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">
+            <span style="width:12px;height:12px;border-radius:3px;background:var(--cyan);opacity:0.6;display:inline-block;"></span>Motor Idle
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">
+            <span style="width:12px;height:12px;border-radius:3px;background:var(--muted);opacity:0.4;display:inline-block;"></span>Device Offline
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
   <div class="footer">
     <div class="footer-text">TARO CONNECT ANALYTICS · v2.0 · {{ filename }} · {{ total_rows }} records</div>
     <div class="footer-status">Analysis Complete</div>
@@ -863,7 +1067,7 @@ updateClock();
 setInterval(updateClock, 1000);
 
 // ── Chart.js defaults ─────────────────────────────────
-Chart.defaults.font.family = "'DM Mono', monospace";
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
 Chart.defaults.font.size   = 10;
 Chart.defaults.plugins.legend.labels.boxWidth     = 10;
 Chart.defaults.plugins.legend.labels.padding      = 16;
@@ -895,7 +1099,7 @@ function makeOptions() {
       legend: {
         labels: {
           color: c.legend,
-          font: { family:"'DM Sans',sans-serif", size:12, weight:'600' },
+          font: { family:"'Inter',sans-serif", size:12, weight:'600' },
           usePointStyle:true,
           pointStyleWidth:12
         }
@@ -909,8 +1113,8 @@ function makeOptions() {
         bodyColor: c.ttBody,
         padding:12,
         cornerRadius:8,
-        titleFont:{ family:"'DM Mono',monospace", size:10 },
-        bodyFont:{ family:"'DM Sans',sans-serif", size:13 }
+        titleFont:{ family:"'JetBrains Mono',monospace", size:10 },
+        bodyFont:{ family:"'Inter',sans-serif", size:13 }
       },
 
       // 🔥 ADD THIS
