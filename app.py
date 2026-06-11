@@ -11,15 +11,13 @@ app.secret_key = "taroconnect-secret-key-2024"
 
 import threading
 _progress_lock = threading.Lock()
-progress_data = {
-    "percent": 0,
-    "status": "Idle"
-}
+progress_data = {"percent": 0, "status": "Idle"}
 
 def set_progress(percent, status):
     with _progress_lock:
         progress_data["percent"] = percent
         progress_data["status"]  = status
+
 # ═══════════════════════════════════════════════════════
 # CONSTANTS
 # ═══════════════════════════════════════════════════════
@@ -63,15 +61,16 @@ VOLTAGE_COLS    = ["Line Voltage", "Line Voltage 2", "Line Voltage 3"]
 CURRENT_COLS    = ["Current Amp", "Current Amp2", "Current Amp3"]
 KEY_SENSOR_COLS = VOLTAGE_COLS + CURRENT_COLS + ["Pressure", "Flow Sensor", "Frequency"]
 
-# Pass 1 — stats only (scalars needed for health score, KPIs, summaries)
+OFFLINE_GAP_MINUTES = 10   # gaps larger than this = device offline
+
 STATS_COLS = [
     "DeviceId", "IoTHubName", "PumpPhaseType", "QueuedTime-IST",
     "MotorRunningStatus", "Error CondMon", "ModeOfOperating",
     "Total Running Time", "PackCount", "NetType",
 ] + KEY_SENSOR_COLS + ["Signal"]
 
-# Pass 2 — chart data only (downsampled to 500 pts)
-CHART_COLS = ["QueuedTime-IST"] + KEY_SENSOR_COLS + ["Signal", "PackCount", "NetType"]
+CHART_COLS = ["QueuedTime-IST"] + KEY_SENSOR_COLS + ["Signal", "PackCount", "NetType",
+              "MotorRunningStatus", "Error CondMon"]
 
 CHART_DOWNSAMPLE = 500
 
@@ -94,7 +93,6 @@ def validate_upload(file):
 
 
 def read_excel_cols(buf, engine, wanted_cols):
-    """Read only the columns that exist in the file."""
     buf.seek(0)
     header = pd.read_excel(buf, engine=engine, nrows=0)
     use    = [c for c in wanted_cols if c in header.columns]
@@ -104,8 +102,20 @@ def read_excel_cols(buf, engine, wanted_cols):
 
 
 def col_stats(series):
-    """(min, max, avg) from a Series. (0,0,0) if empty."""
     s = pd.to_numeric(series, errors="coerce").dropna()
+    if s.empty:
+        return 0, 0, 0
+    return round(float(s.min()), 2), round(float(s.max()), 2), round(float(s.mean()), 2)
+
+
+def col_stats_motor_on(df, col):
+    """Compute min/max/avg for a column but ONLY when motor is running.
+    Current and voltage are 0 when motor is OFF — including those rows gives wrong averages."""
+    if col not in df.columns or "MotorRunningStatus" not in df.columns:
+        return 0, 0, 0
+    motor_on = df["MotorRunningStatus"].astype(str).str.strip().str.upper().isin(
+        ["1", "TRUE", "YES", "ON"])
+    s = pd.to_numeric(df.loc[motor_on, col], errors="coerce").dropna()
     if s.empty:
         return 0, 0, 0
     return round(float(s.min()), 2), round(float(s.max()), 2), round(float(s.mean()), 2)
@@ -115,7 +125,28 @@ def group_avg(df, cols):
     present = [c for c in cols if c in df.columns]
     if not present:
         return 0
-    return round(sum(pd.to_numeric(df[c], errors="coerce").mean() for c in present) / len(present), 2)
+    vals = [pd.to_numeric(df[c], errors="coerce").mean() for c in present]
+    vals = [v for v in vals if not pd.isna(v)]
+    if not vals:
+        return 0
+    return round(sum(vals) / len(vals), 2)
+
+
+def group_avg_motor_on(df, cols):
+    """Average across phases but ONLY for motor-ON rows.
+    Motor-OFF rows have 0 current/voltage which skews the average badly."""
+    if "MotorRunningStatus" not in df.columns:
+        return group_avg(df, cols)
+    motor_on = df["MotorRunningStatus"].astype(str).str.strip().str.upper().isin(
+        ["1", "TRUE", "YES", "ON"])
+    present = [c for c in cols if c in df.columns]
+    if not present:
+        return 0
+    vals = [pd.to_numeric(df.loc[motor_on, c], errors="coerce").mean() for c in present]
+    vals = [v for v in vals if not pd.isna(v)]
+    if not vals:
+        return 0
+    return round(sum(vals) / len(vals), 2)
 
 
 def minutes_to_dhm(total_minutes):
@@ -127,7 +158,6 @@ def minutes_to_dhm(total_minutes):
 
 
 def downsample_series(series, max_pts=CHART_DOWNSAMPLE):
-    """Downsample a Series to list — no full intermediate list."""
     n = len(series)
     if n <= max_pts:
         return pd.to_numeric(series, errors="coerce").fillna(0).tolist()
@@ -143,7 +173,79 @@ def downsample_list(lst, max_pts=CHART_DOWNSAMPLE):
 
 
 # ═══════════════════════════════════════════════════════
-# PASS 1 — compute all scalars from stats columns
+# DURATION CALCULATIONS (single-pass, correct)
+# ═══════════════════════════════════════════════════════
+
+def compute_durations(df):
+    """
+    Returns a dict with all duration breakdowns computed from
+    consecutive-row time differences.
+    Keys:
+        total_log_mins          — full log span (excl offline gaps)
+        motor_running_mins      — motor ON, any error state
+        motor_idle_mins         — motor OFF, device online
+        no_error_running_mins   — motor ON, error == 0
+        error_running_mins      — motor ON, error != 0
+        offline_mins            — gaps > OFFLINE_GAP_MINUTES
+        error_duration_by_code  — {error_code: minutes}
+        mode_runtime            — {mode_code: minutes}  (motor ON only)
+    """
+    result = dict(
+        total_log_mins=0,
+        motor_running_mins=0,
+        motor_idle_mins=0,
+        no_error_running_mins=0,
+        error_running_mins=0,
+        offline_mins=0,
+        error_duration_by_code={},
+        mode_runtime={},
+    )
+
+    needs = {"QueuedTime-IST", "MotorRunningStatus", "Error CondMon", "ModeOfOperating"}
+    if not needs.issubset(df.columns):
+        return result
+
+    ts      = pd.to_datetime(df["QueuedTime-IST"], errors="coerce")
+    motor   = df["MotorRunningStatus"].astype(str).str.strip().str.upper().isin(
+                  ["1", "TRUE", "YES", "ON"])
+    err     = pd.to_numeric(df["Error CondMon"], errors="coerce").fillna(0).astype(int)
+    mode_s  = pd.to_numeric(df["ModeOfOperating"], errors="coerce").fillna(-1).astype(int)
+
+    for i in range(len(df) - 1):
+        t1, t2 = ts.iloc[i], ts.iloc[i + 1]
+        if pd.isna(t1) or pd.isna(t2):
+            continue
+        diff = (t2 - t1).total_seconds() / 60
+        if diff <= 0:
+            continue
+
+        if diff > OFFLINE_GAP_MINUTES:
+            result["offline_mins"] += diff
+            continue
+
+        result["total_log_mins"] += diff
+        is_running = bool(motor.iloc[i])
+        err_code   = int(err.iloc[i])
+        mode_code  = int(mode_s.iloc[i])
+
+        if is_running:
+            result["motor_running_mins"] += diff
+            if err_code != 0:
+                result["error_running_mins"] += diff
+                ec = result["error_duration_by_code"]
+                ec[err_code] = ec.get(err_code, 0) + diff
+            else:
+                result["no_error_running_mins"] += diff
+            mr = result["mode_runtime"]
+            mr[mode_code] = mr.get(mode_code, 0) + diff
+        else:
+            result["motor_idle_mins"] += diff
+
+    return result
+
+
+# ═══════════════════════════════════════════════════════
+# PASS 1 — compute all scalars
 # ═══════════════════════════════════════════════════════
 
 def compute_stats(df):
@@ -161,12 +263,14 @@ def compute_stats(df):
         if not ts.empty:
             date_range = f"{ts.min().strftime('%d %b %Y')} → {ts.max().strftime('%d %b %Y')}"
 
+    # Motor start count
     start_count = 0
     if "MotorRunningStatus" in df.columns:
         raw = df["MotorRunningStatus"].fillna(0).astype(str).str.strip().str.upper()
         ms  = raw.isin({"1", "TRUE", "YES", "ON"})
         start_count = int((~ms.shift(1, fill_value=False) & ms).sum())
 
+    # Error summary (count-based)
     error_summary = {}
     if "Error CondMon" in df.columns:
         codes = pd.to_numeric(df["Error CondMon"], errors="coerce").dropna().astype(int)
@@ -174,85 +278,71 @@ def compute_stats(df):
             desc     = ERROR_CODES.get(code, "Unknown Error")
             severity = ("critical" if code in CRITICAL_ERRORS else
                         "warning"  if code in WARNING_ERRORS  else "info")
-            error_summary[f"{code} - {desc}"] = {"count": count, "severity": severity}
-    
-    # Actual runtime by mode (Motor ON time only)
-    mode_runtime = {}
+            error_summary[f"{code} - {desc}"] = {"count": int(count), "severity": severity}
 
-    if all(col in df.columns for col in [
-    "ModeOfOperating",
-    "MotorRunningStatus",
-    "QueuedTime-IST"
-    ]):
+    # ── Duration breakdown (single pass) ───────────────
+    dur = compute_durations(df)
 
-      ts = pd.to_datetime(df["QueuedTime-IST"], errors="coerce")
+    total_log_mins        = dur["total_log_mins"] + dur["offline_mins"]
+    motor_running_mins    = dur["motor_running_mins"]
+    motor_idle_mins       = dur["motor_idle_mins"]
+    error_running_mins    = dur["error_running_mins"]
+    no_error_running_mins = dur["no_error_running_mins"]
+    offline_mins          = dur["offline_mins"]
+    error_duration_by_code = dur["error_duration_by_code"]
 
-    for i in range(len(df) - 1):
-
-        running = str(df.iloc[i]["MotorRunningStatus"]).strip().upper()
-
-        if running not in ["1", "TRUE", "YES", "ON"]:
-            continue
-
-        try:
-            mode = int(df.iloc[i]["ModeOfOperating"])
-        except:
-            continue
-
-        if pd.isna(ts.iloc[i]) or pd.isna(ts.iloc[i + 1]):
-            continue
-
-        diff = (ts.iloc[i + 1] - ts.iloc[i]).total_seconds() / 60
-
-        if diff <= 0:
-            continue
-
-        mode_runtime[mode] = mode_runtime.get(mode, 0) + diff
-
-# Mode summary
+    # ── Mode summary (with correct duration) ───────────
     mode_summary = {}
-
     if "ModeOfOperating" in df.columns:
-      for code, count in df["ModeOfOperating"].value_counts().items():
+        for code, count in df["ModeOfOperating"].value_counts().items():
+            try:    code_int = int(code)
+            except: code_int = -1
+            mode_summary[
+                MODE_DESCRIPTIONS.get(code_int, f"Unknown Mode ({code})")
+            ] = {
+                "code": code_int,
+                "count": int(count),
+                "icon": MODE_ICONS.get(code_int, "❓"),
+                "duration": minutes_to_dhm(dur["mode_runtime"].get(code_int, 0)),
+            }
 
-        try:
-            code_int = int(code)
-        except:
-            code_int = -1
-
-        mode_summary[
-            MODE_DESCRIPTIONS.get(code_int, f"Unknown Mode ({code})")
-        ] = {
-            "code": code_int,
-            "count": count,
-            "icon": MODE_ICONS.get(code_int, "❓"),
-            "duration": minutes_to_dhm(
-                mode_runtime.get(code_int, 0)
-            )
-        }
-
+    # ── Error duration table (for new section) ─────────
+    error_duration_table = []
+    for code, mins in sorted(error_duration_by_code.items()):
+        error_duration_table.append({
+            "code": code,
+            "desc": ERROR_CODES.get(code, "Unknown Error"),
+            "severity": ("critical" if code in CRITICAL_ERRORS else
+                         "warning"  if code in WARNING_ERRORS  else "info"),
+            "duration": minutes_to_dhm(mins),
+            "minutes": round(mins, 1),
+        })
 
     def _s(col): return df[col] if col in df.columns else pd.Series(dtype=float)
 
-    v1_min, v1_max, _ = col_stats(_s("Line Voltage"))
-    v2_min, v2_max, _ = col_stats(_s("Line Voltage 2"))
-    v3_min, v3_max, _ = col_stats(_s("Line Voltage 3"))
-    avg_voltage        = group_avg(df, VOLTAGE_COLS)
+    # Voltage stats per phase — motor ON rows only
+    # (voltage reads valid even when motor OFF, but avg/min/max should reflect operating conditions)
+    v1_min, v1_max, v1_avg = col_stats_motor_on(df, "Line Voltage")
+    v2_min, v2_max, v2_avg = col_stats_motor_on(df, "Line Voltage 2")
+    v3_min, v3_max, v3_avg = col_stats_motor_on(df, "Line Voltage 3")
+    avg_voltage             = group_avg_motor_on(df, VOLTAGE_COLS)
 
-    c1_min, c1_max, _ = col_stats(_s("Current Amp"))
-    c2_min, c2_max, _ = col_stats(_s("Current Amp2"))
-    c3_min, c3_max, _ = col_stats(_s("Current Amp3"))
-    avg_current        = group_avg(df, CURRENT_COLS)
+    # Current stats per phase — motor ON rows only
+    # Current is 0 when motor is OFF — averaging all rows gives completely wrong (low) values
+    c1_min, c1_max, c1_avg = col_stats_motor_on(df, "Current Amp")
+    c2_min, c2_max, c2_avg = col_stats_motor_on(df, "Current Amp2")
+    c3_min, c3_max, c3_avg = col_stats_motor_on(df, "Current Amp3")
+    avg_current             = group_avg_motor_on(df, CURRENT_COLS)
 
     p_min,    p_max,    p_avg    = col_stats(_s("Pressure"))
     f_min,    f_max,    f_avg    = col_stats(_s("Flow Sensor"))
-    freq_min, freq_max, freq_avg = col_stats(_s("Frequency"))
+    freq_min, freq_max, freq_avg = col_stats_motor_on(df, "Frequency")
     sig_min,  sig_max,  sig_avg  = col_stats(_s("Signal"))
 
     pack_count_total = 0
     if "PackCount" in df.columns:
-        diff = pd.to_numeric(df["PackCount"], errors="coerce").diff().fillna(0)
-        pack_count_total = int(diff[diff > 0].sum())
+        diff2 = pd.to_numeric(df["PackCount"], errors="coerce").diff().fillna(0)
+        pack_count_total = int(diff2[diff2 > 0].sum())
 
     net_4g_count = net_2g_count = 0
     if "NetType" in df.columns:
@@ -261,30 +351,6 @@ def compute_stats(df):
         net_2g_count = len(df) - net_4g_count
     network_pct_4g = round(net_4g_count / max(net_4g_count + net_2g_count, 1) * 100, 1)
 
-    total_runtime = 0
-
-    if all(col in df.columns for col in [
-    "MotorRunningStatus",
-    "QueuedTime-IST"
-    ]):
-
-      ts = pd.to_datetime(df["QueuedTime-IST"], errors="coerce")
-
-    for i in range(len(df) - 1):
-
-        running = str(df.iloc[i]["MotorRunningStatus"]).strip().upper()
-
-        if running not in ["1", "TRUE", "YES", "ON"]:
-            continue
-
-        if pd.isna(ts.iloc[i]) or pd.isna(ts.iloc[i + 1]):
-            continue
-
-        diff = (ts.iloc[i + 1] - ts.iloc[i]).total_seconds() / 60
-
-        if diff > 0:
-            total_runtime += diff
-            
     # Health score
     score = 100.0
     for key, val in error_summary.items():
@@ -338,17 +404,34 @@ def compute_stats(df):
         total_rows=total_rows, device_id=device_id, iot_hub=iot_hub,
         pump_phase=pump_phase, date_range=date_range, start_count=start_count,
         error_summary=error_summary, mode_summary=mode_summary,
-        v1_min=v1_min, v1_max=v1_max, v2_min=v2_min, v2_max=v2_max,
-        v3_min=v3_min, v3_max=v3_max, avg_voltage=avg_voltage,
-        c1_min=c1_min, c1_max=c1_max, c2_min=c2_min, c2_max=c2_max,
-        c3_min=c3_min, c3_max=c3_max, avg_current=avg_current,
-        p_min=p_min, p_max=p_max, p_avg=p_avg,
-        f_min=f_min, f_max=f_max, f_avg=f_avg,
+        error_duration_table=error_duration_table,
+        # Voltage phase stats
+        v1_min=v1_min, v1_max=v1_max, v1_avg=v1_avg,
+        v2_min=v2_min, v2_max=v2_max, v2_avg=v2_avg,
+        v3_min=v3_min, v3_max=v3_max, v3_avg=v3_avg,
+        avg_voltage=avg_voltage,
+        # Current phase stats
+        c1_min=c1_min, c1_max=c1_max, c1_avg=c1_avg,
+        c2_min=c2_min, c2_max=c2_max, c2_avg=c2_avg,
+        c3_min=c3_min, c3_max=c3_max, c3_avg=c3_avg,
+        avg_current=avg_current,
+        # Process params
+        p_min=p_min,    p_max=p_max,    p_avg=p_avg,
+        f_min=f_min,    f_max=f_max,    f_avg=f_avg,
         freq_min=freq_min, freq_max=freq_max, freq_avg=freq_avg,
         sig_min=sig_min, sig_max=sig_max, sig_avg=sig_avg,
+        # Network / pack
         pack_count_total=pack_count_total, net_4g_count=net_4g_count,
         net_2g_count=net_2g_count, network_pct_4g=network_pct_4g,
-        total_runtime=total_runtime, health_score=health_score,
+        # Duration breakdown
+        total_log_mins=total_log_mins,
+        motor_running_mins=motor_running_mins,
+        motor_idle_mins=motor_idle_mins,
+        error_running_mins=error_running_mins,
+        no_error_running_mins=no_error_running_mins,
+        offline_mins=offline_mins,
+        # Health
+        health_score=health_score,
         quality_findings=quality_findings,
     )
 
@@ -359,18 +442,14 @@ def compute_stats(df):
 
 def compute_charts(df):
     def _ds(col):
-        if col not in df.columns:
-            return []
+        if col not in df.columns: return []
         return downsample_series(df[col])
 
     def _has_data(*cols):
-        """True if at least one col exists and has non-zero numeric data."""
         for col in cols:
-            if col not in df.columns:
-                continue
+            if col not in df.columns: continue
             s = pd.to_numeric(df[col], errors="coerce").dropna()
-            if len(s) > 0 and s.abs().sum() > 0:
-                return True
+            if len(s) > 0 and s.abs().sum() > 0: return True
         return False
 
     time_labels = []
@@ -383,6 +462,19 @@ def compute_charts(df):
             (df["NetType"].astype(str).str.upper() == "4G").map({True: 4, False: 2}).tolist()
         )
 
+    # Motor status for overlay (0/1)
+    motor_status = []
+    if "MotorRunningStatus" in df.columns:
+        ms = df["MotorRunningStatus"].astype(str).str.strip().str.upper().isin(
+                 ["1","TRUE","YES","ON"]).map({True:1,False:0})
+        motor_status = downsample_list(ms.tolist())
+
+    # Error code series (non-zero = error)
+    error_series = []
+    if "Error CondMon" in df.columns:
+        ec = pd.to_numeric(df["Error CondMon"], errors="coerce").fillna(0).astype(int)
+        error_series = downsample_list(ec.tolist())
+
     return dict(
         labels=time_labels,
         voltage1=_ds("Line Voltage"),   voltage2=_ds("Line Voltage 2"), voltage3=_ds("Line Voltage 3"),
@@ -391,7 +483,8 @@ def compute_charts(df):
         frequency=_ds("Frequency"),     signal=_ds("Signal"),
         pack_count_graph=_ds("PackCount"),
         network_numeric=net_numeric,
-        # ── availability flags ──────────────────────────────────────────
+        motor_status=motor_status,
+        error_series=error_series,
         has_voltage  =_has_data("Line Voltage", "Line Voltage 2", "Line Voltage 3"),
         has_current  =_has_data("Current Amp",  "Current Amp2",   "Current Amp3"),
         has_pressure =_has_data("Pressure"),
@@ -407,17 +500,15 @@ def compute_charts(df):
 # ROUTES
 # ═══════════════════════════════════════════════════════
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
     return render_template("index.html")
-
 
 @app.route("/progress")
 def progress():
     return jsonify(progress_data)
 
-
-@app.route("/upload", methods=["POST"])
+@app.route("/", methods=["POST"])
 def upload():
     file = request.files.get("file")
     ok, msg = validate_upload(file)
@@ -436,8 +527,6 @@ def upload():
         return render_template("index.html", upload_error=f"Could not read file: {e}")
 
     set_progress(15, "Reading date range from Excel...")
-
-    # Read only the date column to find available date range
     try:
         buf = io.BytesIO(file_bytes)
         buf.seek(0)
@@ -447,8 +536,8 @@ def upload():
             date_df = pd.read_excel(buf, engine=engine, usecols=["QueuedTime-IST"])
             ts = pd.to_datetime(date_df["QueuedTime-IST"], errors="coerce").dropna()
             del date_df
-            min_date = ts.min().strftime('%Y-%m-%d') if not ts.empty else None
-            max_date = ts.max().strftime('%Y-%m-%d') if not ts.empty else None
+            min_date   = ts.min().strftime('%Y-%m-%d') if not ts.empty else None
+            max_date   = ts.max().strftime('%Y-%m-%d') if not ts.empty else None
             total_rows = len(ts)
         else:
             min_date = max_date = None
@@ -459,13 +548,11 @@ def upload():
         min_date = max_date = None
         total_rows = 0
 
-    # Save file bytes to a temp file on disk (session can't hold large bytes)
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1])
     tmp.write(file_bytes)
     tmp.close()
     del file_bytes
 
-    # Store temp path + metadata in session
     session["tmp_path"]   = tmp.name
     session["filename"]   = filename
     session["engine"]     = engine
@@ -474,30 +561,28 @@ def upload():
     session["total_rows"] = total_rows
 
     set_progress(25, "File ready — select date range...")
-
-    return render_template(
-        "date_range.html",
-        filename=filename,
-        min_date=min_date,
-        max_date=max_date,
-        total_rows=total_rows,
-    )
+    return render_template("date_range.html", filename=filename,
+                           min_date=min_date, max_date=max_date, total_rows=total_rows)
 
 
-@app.route("/process", methods=["POST"])
+@app.route("/r", methods=["GET", "POST"])
 def process():
-    tmp_path  = session.get("tmp_path")
-    filename  = session.get("filename", "report.xlsx")
-    engine    = session.get("engine", "openpyxl")
-    min_date  = session.get("min_date")
-    max_date  = session.get("max_date")
+    if request.method == "GET":
+        from flask import redirect
+        return redirect("/")
+
+    tmp_path = session.get("tmp_path")
+    filename = session.get("filename", "report.xlsx")
+    engine   = session.get("engine", "openpyxl")
+    min_date = session.get("min_date")
+    max_date = session.get("max_date")
 
     if not tmp_path or not os.path.exists(tmp_path):
         return render_template("index.html", upload_error="Session expired. Please upload again.")
 
-    use_filter  = request.form.get("filter_type") == "range"
-    date_from   = request.form.get("date_from", "")
-    date_to     = request.form.get("date_to", "")
+    use_filter = request.form.get("filter_type") == "range"
+    date_from  = request.form.get("date_from", "")
+    date_to    = request.form.get("date_to", "")
 
     set_progress(30, "Reading Excel...")
     try:
@@ -507,15 +592,13 @@ def process():
         set_progress(0, "Idle")
         return render_template("index.html", upload_error=f"Could not read temp file: {e}")
 
-    # ── PASS 1 : stats columns only ───────────────────
+    # ── PASS 1 ─────────────────────────────────────────
     try:
         df1 = read_excel_cols(buf, engine, STATS_COLS)
-
-        # Apply date filter if requested
         if use_filter and date_from and date_to and "QueuedTime-IST" in df1.columns:
             df1["QueuedTime-IST"] = pd.to_datetime(df1["QueuedTime-IST"], errors="coerce")
-            mask = (df1["QueuedTime-IST"] >= pd.Timestamp(date_from)) & \
-                   (df1["QueuedTime-IST"] <= pd.Timestamp(date_to) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1))
+            mask = ((df1["QueuedTime-IST"] >= pd.Timestamp(date_from)) &
+                    (df1["QueuedTime-IST"] <= pd.Timestamp(date_to) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)))
             df1 = df1[mask].reset_index(drop=True)
 
         set_progress(50, "Calculating Statistics...")
@@ -528,14 +611,13 @@ def process():
 
     set_progress(70, "Generating Charts...")
 
-    # ── PASS 2 : chart columns only ───────────────────
+    # ── PASS 2 ─────────────────────────────────────────
     try:
         df2 = read_excel_cols(buf, engine, CHART_COLS)
-
         if use_filter and date_from and date_to and "QueuedTime-IST" in df2.columns:
             df2["QueuedTime-IST"] = pd.to_datetime(df2["QueuedTime-IST"], errors="coerce")
-            mask = (df2["QueuedTime-IST"] >= pd.Timestamp(date_from)) & \
-                   (df2["QueuedTime-IST"] <= pd.Timestamp(date_to) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1))
+            mask = ((df2["QueuedTime-IST"] >= pd.Timestamp(date_from)) &
+                    (df2["QueuedTime-IST"] <= pd.Timestamp(date_to) + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)))
             df2 = df2[mask].reset_index(drop=True)
 
         charts = compute_charts(df2)
@@ -545,7 +627,6 @@ def process():
         set_progress(0, "Idle")
         return render_template("index.html", upload_error=f"Could not build charts: {e}")
 
-    # Cleanup temp file
     try:
         os.unlink(tmp_path)
         session.pop("tmp_path", None)
@@ -554,7 +635,6 @@ def process():
 
     set_progress(90, "Building Dashboard...")
 
-    # ── Derived display values ─────────────────────────
     hs = stats["health_score"]
     health_label = ("Excellent" if hs >= 85 else "Good" if hs >= 70 else "Fair" if hs >= 50 else "Poor")
     health_color = ("green"     if hs >= 85 else "blue" if hs >= 70 else "gold" if hs >= 50 else "red")
@@ -590,7 +670,12 @@ def process():
 
     qf = stats["quality_findings"]
     stats["pack_count_total"] = int(stats["pack_count_total"])
-    stats["running_time"]     = minutes_to_dhm(stats["total_runtime"])
+    stats["running_time"]     = minutes_to_dhm(stats["motor_running_mins"])
+    stats["total_log_time"]   = minutes_to_dhm(stats["total_log_mins"])
+    stats["offline_time"]     = minutes_to_dhm(stats["offline_mins"])
+    stats["idle_time"]        = minutes_to_dhm(stats["motor_idle_mins"])
+    stats["error_time"]       = minutes_to_dhm(stats["error_running_mins"])
+    stats["no_error_run_time"]= minutes_to_dhm(stats["no_error_running_mins"])
 
     set_progress(100, "Dashboard Ready!")
 
