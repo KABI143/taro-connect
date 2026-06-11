@@ -363,49 +363,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
   background: var(--card);
 }
 
-/* ── CHART STAT FOOTER ── */
-.chart-stats-bar {
-  display:flex; gap:0; border-top:1px solid var(--border); background:var(--card);
-  border-radius:0 0 14px 14px; overflow:hidden;
-}
-.chart-stat-item {
-  flex:1; padding:10px 14px; text-align:center; border-right:1px solid var(--border);
-}
-.chart-stat-item:last-child { border-right:none; }
-.csi-lbl { font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; margin-bottom:3px; }
-.csi-val { font-family:'Inter',sans-serif; font-size:14px; font-weight:700; }
-.csi-val.mn { color:var(--cyan); }
-.csi-val.av { color:var(--green); }
-.csi-val.mx { color:var(--red); }
-
-/* ── DURATION SUMMARY SECTION ── */
-.dur-summary-grid {
-  display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:0;
-}
-@media(max-width:1100px){ .dur-summary-grid{grid-template-columns:repeat(3,1fr)} }
-@media(max-width:700px) { .dur-summary-grid{grid-template-columns:repeat(2,1fr)} }
-
-.dur-card {
-  background:var(--surface); border:1px solid var(--border); border-radius:14px;
-  padding:18px 16px; position:relative; overflow:hidden; transition:all 0.2s;
-  box-shadow:0 2px 8px rgba(0,0,0,0.04);
-}
-.dur-card:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(59,126,248,0.1); }
-.dur-card::after {
-  content:''; position:absolute; top:0; left:0; right:0; height:3px;
-  background:linear-gradient(90deg,var(--accent),var(--accent2));
-  border-radius:14px 14px 0 0;
-}
-.dur-card.green::after  { background:linear-gradient(90deg,var(--green),#10b981); }
-.dur-card.cyan::after   { background:linear-gradient(90deg,var(--cyan),#6366f1); }
-.dur-card.gold::after   { background:linear-gradient(90deg,var(--gold),#f59e0b); }
-.dur-card.red::after    { background:linear-gradient(90deg,var(--red),#f97316); }
-.dur-card.purple::after { background:linear-gradient(90deg,var(--purple),var(--accent2)); }
-
-.dur-label { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
-.dur-value { font-family:'Inter',sans-serif; font-size:16px; font-weight:800; color:var(--text); line-height:1.2; letter-spacing:-0.5px; }
-.dur-icon  { position:absolute; bottom:10px; right:12px; font-size:28px; opacity:0.18; line-height:1; }
-
 /* ── FOOTER ── */
 .footer {
   background:var(--surface); border-top:1px solid var(--border);
@@ -583,7 +540,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="minmax-title">⚡ R-Phase Voltage (L1)</div>
         <div class="minmax-row">
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ v1_min }} V</div></div>
-          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ v1_avg }} V</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ v1_max }} V</div></div>
         </div>
       </div>
@@ -591,7 +547,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="minmax-title">⚡ Y-Phase Voltage (L2)</div>
         <div class="minmax-row">
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ v2_min }} V</div></div>
-          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ v2_avg }} V</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ v2_max }} V</div></div>
         </div>
       </div>
@@ -599,7 +554,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="minmax-title">⚡ B-Phase Voltage (L3)</div>
         <div class="minmax-row">
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ v3_min }} V</div></div>
-          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ v3_avg }} V</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ v3_max }} V</div></div>
         </div>
       </div>
@@ -618,7 +572,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="minmax-title">〜 R-Phase Current (A1)</div>
         <div class="minmax-row">
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ c1_min }} A</div></div>
-          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ c1_avg }} A</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ c1_max }} A</div></div>
         </div>
       </div>
@@ -626,7 +579,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="minmax-title">〜 Y-Phase Current (A2)</div>
         <div class="minmax-row">
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ c2_min }} A</div></div>
-          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ c2_avg }} A</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ c2_max }} A</div></div>
         </div>
       </div>
@@ -634,7 +586,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="minmax-title">〜 B-Phase Current (A3)</div>
         <div class="minmax-row">
           <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ c3_min }} A</div></div>
-          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ c3_avg }} A</div></div>
           <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ c3_max }} A</div></div>
         </div>
       </div>
@@ -784,18 +735,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="ch-badge">3-PHASE · V</div>
       </div>
       <div class="chart-body"><canvas id="voltageChart" height="90"></canvas></div>
-      <div class="chart-stats-bar">
-        <div class="chart-stat-item"><div class="csi-lbl">R-Phase Min</div><div class="csi-val mn">{{ v1_min }} V</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">R-Phase Avg</div><div class="csi-val av">{{ v1_avg }} V</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">R-Phase Max</div><div class="csi-val mx">{{ v1_max }} V</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">Y-Phase Min</div><div class="csi-val mn">{{ v2_min }} V</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">Y-Phase Avg</div><div class="csi-val av">{{ v2_avg }} V</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">Y-Phase Max</div><div class="csi-val mx">{{ v2_max }} V</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">B-Phase Min</div><div class="csi-val mn">{{ v3_min }} V</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">B-Phase Avg</div><div class="csi-val av">{{ v3_avg }} V</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">B-Phase Max</div><div class="csi-val mx">{{ v3_max }} V</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">Overall Avg</div><div class="csi-val av">{{ avg_voltage }} V</div></div>
-      </div>
     </div>
     {% else %}
     <div class="chart-panel"><div class="no-data-msg">⚡ Voltage data not available in this report</div></div>
@@ -809,18 +748,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="ch-badge">3-PHASE · A</div>
       </div>
       <div class="chart-body"><canvas id="currentChart" height="90"></canvas></div>
-      <div class="chart-stats-bar">
-        <div class="chart-stat-item"><div class="csi-lbl">R-Phase Min</div><div class="csi-val mn">{{ c1_min }} A</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">R-Phase Avg</div><div class="csi-val av">{{ c1_avg }} A</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">R-Phase Max</div><div class="csi-val mx">{{ c1_max }} A</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">Y-Phase Min</div><div class="csi-val mn">{{ c2_min }} A</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">Y-Phase Avg</div><div class="csi-val av">{{ c2_avg }} A</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">Y-Phase Max</div><div class="csi-val mx">{{ c2_max }} A</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">B-Phase Min</div><div class="csi-val mn">{{ c3_min }} A</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">B-Phase Avg</div><div class="csi-val av">{{ c3_avg }} A</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">B-Phase Max</div><div class="csi-val mx">{{ c3_max }} A</div></div>
-        <div class="chart-stat-item"><div class="csi-lbl">Overall Avg</div><div class="csi-val av">{{ avg_current }} A</div></div>
-      </div>
     </div>
     {% else %}
     <div class="chart-panel"><div class="no-data-msg">〜 Current data not available in this report</div></div>
@@ -842,11 +769,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
           <div class="ch-title">Pressure</div><div class="ch-badge">BAR</div>
         </div>
         <div class="chart-body"><canvas id="pressureChart" height="120"></canvas></div>
-        <div class="chart-stats-bar">
-          <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ p_min }}</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ p_avg }}</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ p_max }}</div></div>
-        </div>
       </div>
       {% else %}
       <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">🔵 Pressure data not available</div></div>
@@ -858,11 +780,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
           <div class="ch-title">Flow Sensor</div><div class="ch-badge">m³/h</div>
         </div>
         <div class="chart-body"><canvas id="flowChart" height="120"></canvas></div>
-        <div class="chart-stats-bar">
-          <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ f_min }}</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ f_avg }}</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ f_max }}</div></div>
-        </div>
       </div>
       {% else %}
       <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">🟢 Flow data not available</div></div>
@@ -877,11 +794,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
           <div class="ch-title">Frequency</div><div class="ch-badge">Hz</div>
         </div>
         <div class="chart-body"><canvas id="frequencyChart" height="120"></canvas></div>
-        <div class="chart-stats-bar">
-          <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ freq_min }} Hz</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ freq_avg }} Hz</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ freq_max }} Hz</div></div>
-        </div>
       </div>
       {% else %}
       <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">🟣 Frequency data not available</div></div>
@@ -893,11 +805,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
           <div class="ch-title">Signal Strength</div><div class="ch-badge">dBm</div>
         </div>
         <div class="chart-body"><canvas id="signalChart" height="120"></canvas></div>
-        <div class="chart-stats-bar">
-          <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ sig_min }} dBm</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ sig_avg }} dBm</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ sig_max }} dBm</div></div>
-        </div>
       </div>
       {% else %}
       <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">📶 Signal data not available</div></div>
@@ -935,105 +842,6 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       {% else %}
       <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">📡 Network type data not available</div></div>
       {% endif %}
-    </div>
-
-  </div>
-
-  <!-- ═══ SECTION: ERROR DURATION ═══ -->
-  <div class="content" style="padding-top:0;">
-
-    <div class="section-head">
-      <div class="sh-bar"></div>
-      <div class="sh-title">Error Duration Breakdown</div>
-      <div class="sh-line"></div>
-      <div class="sh-tag">Time Spent in Each Error State</div>
-    </div>
-
-    {% if error_duration_table %}
-    <div class="data-table-box" style="margin-bottom:16px;">
-      <div class="dtb-head"><div class="dtb-dot" style="background:var(--red);"></div>Error Duration by Fault Code</div>
-      <table>
-        <tr><th>Code</th><th>Description</th><th>Severity</th><th>Duration</th></tr>
-        {% for row in error_duration_table %}
-        <tr>
-          <td class="td-code">{{ row.code }}</td>
-          <td>{{ row.desc }}</td>
-          <td><span class="sev-badge sev-{{ row.severity }}">{{ row.severity }}</span></td>
-          <td style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--cyan);">{{ row.duration }}</td>
-        </tr>
-        {% endfor %}
-      </table>
-    </div>
-    {% else %}
-    <div class="chart-panel"><div class="no-data-msg">✅ No error durations recorded — device ran without faults</div></div>
-    {% endif %}
-
-    <!-- ═══ SECTION: FINAL SUMMARY ═══ -->
-    <div class="section-head" style="margin-top:36px;">
-      <div class="sh-bar"></div>
-      <div class="sh-title">Final Duration Summary</div>
-      <div class="sh-line"></div>
-      <div class="sh-tag">Complete Log Breakdown</div>
-    </div>
-
-    <div class="dur-summary-grid">
-      <div class="dur-card">
-        <div class="dur-label">Total Log Duration</div>
-        <div class="dur-value">{{ total_log_time }}</div>
-        <div class="dur-icon">📋</div>
-      </div>
-      <div class="dur-card green">
-        <div class="dur-label">Motor Running Duration</div>
-        <div class="dur-value">{{ running_time }}</div>
-        <div class="dur-icon">⚙️</div>
-      </div>
-      <div class="dur-card cyan">
-        <div class="dur-label">Motor Idle Duration</div>
-        <div class="dur-value">{{ idle_time }}</div>
-        <div class="dur-icon">💤</div>
-      </div>
-      <div class="dur-card gold">
-        <div class="dur-label">Error Duration (All Errors)</div>
-        <div class="dur-value">{{ error_time }}</div>
-        <div class="dur-icon">⚠️</div>
-      </div>
-      <div class="dur-card red">
-        <div class="dur-label">Device Offline Duration</div>
-        <div class="dur-value">{{ offline_time }}</div>
-        <div class="dur-icon">📡</div>
-      </div>
-    </div>
-
-    <!-- Duration Visual Bar -->
-    <div class="data-table-box" style="margin-top:16px;">
-      <div class="dtb-head"><div class="dtb-dot" style="background:var(--accent);"></div>Duration Breakdown — Proportional View</div>
-      <div style="padding:20px;">
-        <div style="display:flex; height:32px; border-radius:8px; overflow:hidden; gap:2px;">
-          {% set total_m = total_log_mins if total_log_mins > 0 else 1 %}
-          <div title="Motor Running (No Error): {{ no_error_run_time }}"
-               style="background:var(--green); flex:{{ no_error_running_mins / total_m }}; min-width:2px; transition:flex 1s; border-radius:4px;"></div>
-          <div title="Error Running: {{ error_time }}"
-               style="background:var(--red); flex:{{ error_running_mins / total_m }}; min-width:{% if error_running_mins > 0 %}2{% else %}0{% endif %}px; transition:flex 1s; border-radius:4px;"></div>
-          <div title="Motor Idle: {{ idle_time }}"
-               style="background:var(--cyan); opacity:0.6; flex:{{ motor_idle_mins / total_m }}; min-width:2px; transition:flex 1s; border-radius:4px;"></div>
-          <div title="Device Offline: {{ offline_time }}"
-               style="background:var(--muted); opacity:0.4; flex:{{ offline_mins / total_m }}; min-width:{% if offline_mins > 0 %}2{% else %}0{% endif %}px; transition:flex 1s; border-radius:4px;"></div>
-        </div>
-        <div style="display:flex; gap:24px; margin-top:12px; flex-wrap:wrap;">
-          <div style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">
-            <span style="width:12px;height:12px;border-radius:3px;background:var(--green);display:inline-block;"></span>Running (No Error)
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">
-            <span style="width:12px;height:12px;border-radius:3px;background:var(--red);display:inline-block;"></span>Running with Error
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">
-            <span style="width:12px;height:12px;border-radius:3px;background:var(--cyan);opacity:0.6;display:inline-block;"></span>Motor Idle
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">
-            <span style="width:12px;height:12px;border-radius:3px;background:var(--muted);opacity:0.4;display:inline-block;"></span>Device Offline
-          </div>
-        </div>
-      </div>
     </div>
 
   </div>
