@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Taro Connect — Select Date Range</title>
-<link rel="icon" type="image/png" href="/static/images/taroconnect.png">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -209,7 +208,7 @@ body::after{content:'';position:fixed;inset:0;
       <!-- Filter type -->
       <div class="section-head">Select Data Range</div>
 
-      <form id="rangeForm" action="/r" method="post">
+      <form id="rangeForm" action="/process" method="post">
         <div class="filter-toggle">
           <label class="filter-opt">
             <input type="radio" name="filter_type" value="full" id="optFull" checked>
