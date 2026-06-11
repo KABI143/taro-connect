@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Taro Connect — Device Analytics</title>
-<link rel="icon" type="image/png" href="/static/images/taroconnect.png">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -102,44 +101,19 @@ body::after{content:'';position:fixed;inset:0;
 .status{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--green)}
 .status-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse-live 2s ease-in-out infinite}
 
-.loader{display:none;position:fixed;inset:0;background:rgba(240,244,250,0.98);
-  z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:20px}
-[data-theme="dark"] .loader{background:rgba(11,14,22,0.98)}
+.loader{display:none;position:fixed;inset:0;background:rgba(240,244,250,0.97);
+  z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:24px}
+[data-theme="dark"] .loader{background:rgba(11,14,22,0.97)}
 .loader.active{display:flex}
-
-/* Spinning ring */
-.loader-ring{width:80px;height:80px;border-radius:50%;border:2px solid var(--border);
-  border-top:2px solid var(--accent);animation:spin 0.9s linear infinite;position:relative;flex-shrink:0}
+.loader-ring{width:72px;height:72px;border-radius:50%;border:2px solid var(--border);
+  border-top:2px solid var(--accent);animation:spin 0.9s linear infinite;position:relative}
 .loader-ring::after{content:'';position:absolute;inset:10px;border-radius:50%;
   border:1px solid var(--border);border-bottom:1px solid var(--accent2);
   animation:spin 1.5s linear infinite reverse}
 @keyframes spin{to{transform:rotate(360deg)}}
-
-/* Percentage number */
-.loader-percent{font-family:'Syne',sans-serif;font-size:42px;font-weight:800;
-  color:var(--text);letter-spacing:-1px;line-height:1;margin-top:4px}
-.loader-percent span{font-size:20px;font-weight:600;color:var(--accent);margin-left:2px}
-
-/* Title */
-.loader-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;
-  letter-spacing:3px;text-transform:uppercase;color:var(--text)}
-
-/* Progress bar track */
-.loader-bar-track{width:300px;max-width:80vw;height:6px;background:var(--border);
-  border-radius:99px;overflow:hidden}
-.loader-bar-fill{height:100%;width:0%;border-radius:99px;
-  background:linear-gradient(90deg,var(--accent),var(--accent2));
-  transition:width 0.3s ease;box-shadow:0 0 8px rgba(59,126,248,0.4)}
-
-/* Status message */
-.loader-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);
-  min-height:16px;transition:opacity 0.3s}
-
-/* Steps row */
-.loader-steps{display:flex;gap:6px;margin-top:4px}
-.loader-step{width:6px;height:6px;border-radius:50%;background:var(--border);transition:background 0.3s}
-.loader-step.done{background:var(--green)}
-.loader-step.active{background:var(--accent);animation:pulse-live 1s ease-in-out infinite}
+.loader-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--text)}
+.loader-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);animation:blink 1.4s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 </style>
 </head>
 <body>
@@ -176,7 +150,7 @@ body::after{content:'';position:fixed;inset:0;
         </div>
       </div>
 
-      <form id="uploadForm" action="/" method="post" enctype="multipart/form-data">
+      <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
         <div class="upload-zone" id="dropZone">
           <input type="file" id="fileInput" name="file" accept=".xlsx,.xls" required>
           <div class="upload-icon">📂</div>
@@ -206,17 +180,8 @@ body::after{content:'';position:fixed;inset:0;
 
 <div class="loader" id="loader">
   <div class="loader-ring"></div>
-  <div class="loader-percent" id="loaderPercent">0<span>%</span></div>
   <div class="loader-title">Processing Report</div>
-  <div class="loader-bar-track"><div class="loader-bar-fill" id="loaderBar"></div></div>
-  <div class="loader-sub" id="loaderSub">Initializing...</div>
-  <div class="loader-steps">
-    <div class="loader-step active" id="step0"></div>
-    <div class="loader-step" id="step1"></div>
-    <div class="loader-step" id="step2"></div>
-    <div class="loader-step" id="step3"></div>
-    <div class="loader-step" id="step4"></div>
-  </div>
+  <div class="loader-sub">Analyzing telemetry data...</div>
 </div>
 
 <script>
@@ -261,63 +226,7 @@ document.getElementById('fileInput').addEventListener('change', function() {
 document.getElementById('uploadForm').addEventListener('submit', function(e) {
   const btn = document.getElementById('submitBtn');
   if (btn.disabled) { e.preventDefault(); return; }
-
-  // Show loader immediately
   document.getElementById('loader').classList.add('active');
-
-  const percentEl = document.getElementById('loaderPercent');
-  const barEl     = document.getElementById('loaderBar');
-  const subEl     = document.getElementById('loaderSub');
-
-  // Step dots: map % ranges to step index
-  function getStepIdx(pct) {
-    if (pct < 20)  return 0;
-    if (pct < 40)  return 1;
-    if (pct < 70)  return 2;
-    if (pct < 90)  return 3;
-    return 4;
-  }
-
-  function setStep(idx) {
-    for (let i = 0; i < 5; i++) {
-      const s = document.getElementById('step' + i);
-      s.className = 'loader-step' + (i < idx ? ' done' : i === idx ? ' active' : '');
-    }
-  }
-
-  let displayPct = 0;  // smoothly animated current value
-  let targetPct  = 5;  // latest value from server
-
-  // Smooth animation: gradually move displayPct toward targetPct
-  const animInterval = setInterval(() => {
-    if (displayPct < targetPct) {
-      displayPct = Math.min(displayPct + 1, targetPct);
-      percentEl.innerHTML = displayPct + '<span>%</span>';
-      barEl.style.width = displayPct + '%';
-      setStep(getStepIdx(displayPct));
-    }
-  }, 30);
-
-  // Poll server for real progress
-  const pollInterval = setInterval(() => {
-    fetch('/progress')
-      .then(r => r.json())
-      .then(data => {
-        targetPct = data.percent || 0;
-        subEl.style.opacity = '0';
-        setTimeout(() => {
-          subEl.textContent = data.status || '';
-          subEl.style.opacity = '1';
-        }, 150);
-      })
-      .catch(() => {}); // ignore fetch errors during page transition
-  }, 400);
-
-  // Cleanup both intervals after 3 minutes max
-  setTimeout(() => {
-    clearInterval(animInterval);
-    clearInterval(pollInterval);
-  }, 180000);
 });
 </script>
 </body>
