@@ -72,7 +72,7 @@ STATS_COLS = [
 CHART_COLS = ["QueuedTime-IST"] + KEY_SENSOR_COLS + ["Signal", "PackCount", "NetType",
               "MotorRunningStatus", "Error CondMon"]
 
-CHART_DOWNSAMPLE = 500
+CHART_DOWNSAMPLE = 999999 
 
 # ═══════════════════════════════════════════════════════
 # HELPERS
