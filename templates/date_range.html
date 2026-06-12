@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Taro Connect — Select Date Range</title>
+<link rel="icon" type="image/png" href="/static/images/taroconnect.png">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f0f4fa;--surface:#ffffff;--card:#f8fafd;--border:#e2e8f2;--border2:#ccd5e8;
+  --accent:#3b7ef8;--accent2:#6d28d9;--gold:#d97706;--green:#059669;--red:#dc2626;
+  --text:#1e2d4a;--muted:#7a8fb0;
+}
+[data-theme="dark"] {
+  --bg:#0b0e16;--surface:#121520;--card:#181d2e;--border:#252d47;--border2:#2f3a5a;
+  --accent:#4f8ef7;--accent2:#7c3aed;--gold:#e8a930;--green:#10d98e;--red:#f05c5c;
+  --text:#c0cfe8;--muted:#4a5a80;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{min-height:100vh;background:var(--bg);display:flex;align-items:center;justify-content:center;
+  font-family:'DM Sans',sans-serif;position:relative;transition:background 0.3s}
+body::before{content:'';position:fixed;inset:0;
+  background:radial-gradient(ellipse 700px 500px at 30% 20%,rgba(59,126,248,0.06) 0%,transparent 70%),
+             radial-gradient(ellipse 500px 400px at 80% 80%,rgba(109,40,217,0.04) 0%,transparent 60%);
+  pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;inset:0;
+  background-image:radial-gradient(circle,rgba(59,126,248,0.09) 1px,transparent 1px);
+  background-size:28px 28px;pointer-events:none;z-index:0;opacity:0.5}
+
+.container{position:relative;z-index:10;width:560px;max-width:95vw;padding:20px 0}
+
+.top-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.pill-label{display:inline-flex;align-items:center;gap:7px;
+  background:rgba(59,126,248,0.08);border:1px solid rgba(59,126,248,0.2);
+  border-radius:20px;padding:5px 14px 5px 10px;
+  font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--accent);text-transform:uppercase}
+.pill-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse-live 2s ease-in-out infinite}
+@keyframes pulse-live{0%,100%{box-shadow:0 0 0 0 rgba(5,150,105,0.5)}50%{box-shadow:0 0 0 5px rgba(5,150,105,0)}}
+
+.theme-btn{background:var(--card);border:1px solid var(--border2);color:var(--muted);
+  width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:16px;
+  display:flex;align-items:center;justify-content:center;transition:all 0.2s}
+.theme-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;
+  box-shadow:0 4px 24px rgba(59,126,248,0.08),0 1px 3px rgba(0,0,0,0.06);transition:background 0.3s,border-color 0.3s}
+.card-accent{height:3px;background:linear-gradient(90deg,var(--accent) 0%,var(--accent2) 50%,transparent 100%)}
+.card-inner{padding:36px 40px 40px}
+
+/* Step indicator */
+.steps-row{display:flex;align-items:center;gap:0;margin-bottom:32px}
+.step-item{display:flex;align-items:center;gap:8px;flex:1}
+.step-circle{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-size:11px;font-weight:700;flex-shrink:0}
+.step-circle.done{background:var(--green);color:#fff}
+.step-circle.active{background:var(--accent);color:#fff;box-shadow:0 0 0 4px rgba(59,126,248,0.15)}
+.step-circle.pending{background:var(--card);border:1.5px solid var(--border2);color:var(--muted)}
+.step-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.5px;text-transform:uppercase}
+.step-label.done{color:var(--green)}
+.step-label.active{color:var(--accent)}
+.step-label.pending{color:var(--muted)}
+.step-line{flex:1;height:1px;background:var(--border);margin:0 4px}
+.step-line.done{background:var(--green)}
+
+/* File badge */
+.file-badge{display:flex;align-items:center;gap:10px;background:var(--card);
+  border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:28px}
+.file-badge-icon{font-size:20px;flex-shrink:0}
+.file-badge-name{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.file-badge-rows{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+.file-badge-check{font-size:14px;color:var(--green)}
+
+/* Section heading */
+.section-head{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.section-head::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Filter type toggle */
+.filter-toggle{display:flex;gap:10px;margin-bottom:24px}
+.filter-opt{flex:1;position:relative;cursor:pointer}
+.filter-opt input{position:absolute;opacity:0;width:0;height:0}
+.filter-opt-box{border:1.5px solid var(--border2);border-radius:10px;padding:14px 16px;
+  transition:all 0.2s;display:flex;align-items:flex-start;gap:12px}
+.filter-opt input:checked + .filter-opt-box{border-color:var(--accent);background:rgba(59,126,248,0.04);
+  box-shadow:0 0 0 3px rgba(59,126,248,0.08)}
+.filter-opt-box:hover{border-color:var(--border2);background:rgba(59,126,248,0.02)}
+.filter-opt input:checked + .filter-opt-box .fopt-dot{background:var(--accent);border-color:var(--accent)}
+.fopt-dot{width:16px;height:16px;border-radius:50%;border:2px solid var(--border2);flex-shrink:0;
+  margin-top:2px;transition:all 0.15s;position:relative}
+.fopt-dot::after{content:'';position:absolute;inset:3px;border-radius:50%;background:#fff;opacity:0;transition:opacity 0.15s}
+.filter-opt input:checked + .filter-opt-box .fopt-dot::after{opacity:1}
+.fopt-text{flex:1}
+.fopt-title{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px}
+.fopt-desc{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);line-height:1.5}
+
+/* Date range section */
+.date-range-section{display:none;animation:fadeIn 0.25s ease}
+.date-range-section.visible{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.date-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.date-field label{display:block;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;
+  text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.date-field input[type="date"]{width:100%;background:var(--card);border:1.5px solid var(--border2);
+  border-radius:8px;padding:11px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--text);
+  transition:all 0.2s;outline:none;appearance:none;-webkit-appearance:none}
+.date-field input[type="date"]:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(59,126,248,0.08)}
+
+/* Available range hint */
+.range-hint{display:flex;align-items:center;gap:8px;background:rgba(59,126,248,0.04);
+  border:1px solid rgba(59,126,248,0.15);border-radius:8px;padding:10px 14px;margin-bottom:20px;
+  font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+.range-hint strong{color:var(--accent)}
+
+/* Validation msg */
+.date-error{display:none;font-family:'DM Mono',monospace;font-size:11px;color:var(--red);
+  background:rgba(220,38,38,0.06);border:1px solid rgba(220,38,38,0.15);
+  border-radius:6px;padding:8px 12px;margin-bottom:14px}
+.date-error.visible{display:block}
+
+/* Submit button */
+.submit-btn{width:100%;padding:15px;background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);
+  color:#fff;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all 0.2s ease;
+  box-shadow:0 4px 20px rgba(59,126,248,0.25)}
+.submit-btn:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(59,126,248,0.35)}
+.submit-btn:active{transform:translateY(0)}
+
+.back-link{display:flex;align-items:center;gap:6px;margin-top:14px;justify-content:center;
+  font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-decoration:none;
+  transition:color 0.2s;letter-spacing:1px;text-transform:uppercase}
+.back-link:hover{color:var(--accent)}
+
+.footer{display:flex;justify-content:space-between;align-items:center;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.footer-text{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)}
+.status{display:flex;align-items:center;gap:6px;font-family:'DM Mono',monospace;font-size:10px;color:var(--green)}
+.status-dot{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse-live 2s ease-in-out infinite}
+
+/* Loader */
+.loader{display:none;position:fixed;inset:0;background:rgba(240,244,250,0.98);
+  z-index:9999;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+[data-theme="dark"] .loader{background:rgba(11,14,22,0.98)}
+.loader.active{display:flex}
+.loader-ring{width:80px;height:80px;border-radius:50%;border:2px solid var(--border);
+  border-top:2px solid var(--accent);animation:spin 0.9s linear infinite;position:relative;flex-shrink:0}
+.loader-ring::after{content:'';position:absolute;inset:10px;border-radius:50%;
+  border:1px solid var(--border);border-bottom:1px solid var(--accent2);
+  animation:spin 1.5s linear infinite reverse}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-percent{font-family:'Syne',sans-serif;font-size:42px;font-weight:800;
+  color:var(--text);letter-spacing:-1px;line-height:1;margin-top:4px}
+.loader-percent span{font-size:20px;font-weight:600;color:var(--accent);margin-left:2px}
+.loader-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;
+  letter-spacing:3px;text-transform:uppercase;color:var(--text)}
+.loader-bar-track{width:300px;max-width:80vw;height:6px;background:var(--border);border-radius:99px;overflow:hidden}
+.loader-bar-fill{height:100%;width:0%;border-radius:99px;
+  background:linear-gradient(90deg,var(--accent),var(--accent2));
+  transition:width 0.3s ease;box-shadow:0 0 8px rgba(59,126,248,0.4)}
+.loader-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);min-height:16px;transition:opacity 0.3s}
+.loader-steps{display:flex;gap:6px;margin-top:4px}
+.loader-step{width:6px;height:6px;border-radius:50%;background:var(--border);transition:background 0.3s}
+.loader-step.done{background:var(--green)}
+.loader-step.active{background:var(--accent);animation:pulse-live 1s ease-in-out infinite}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="top-row">
+    <div class="pill-label"><span class="pill-dot"></span>SYS-001 // Analytics Engine</div>
+    <button class="theme-btn" id="themeBtn" title="Toggle dark/light mode">🌙</button>
+  </div>
+
+  <div class="card">
+    <div class="card-accent"></div>
+    <div class="card-inner">
+
+      <!-- Step indicator -->
+      <div class="steps-row">
+        <div class="step-item">
+          <div class="step-circle done">✓</div>
+          <div class="step-label done">Upload</div>
+        </div>
+        <div class="step-line done"></div>
+        <div class="step-item">
+          <div class="step-circle active">2</div>
+          <div class="step-label active">Date Range</div>
+        </div>
+        <div class="step-line"></div>
+        <div class="step-item">
+          <div class="step-circle pending">3</div>
+          <div class="step-label pending">Dashboard</div>
+        </div>
+      </div>
+
+      <!-- Uploaded file badge -->
+      <div class="file-badge">
+        <div class="file-badge-icon">📄</div>
+        <div style="flex:1;overflow:hidden">
+          <div class="file-badge-name">{{ filename }}</div>
+          {% if total_rows %}
+          <div class="file-badge-rows">{{ total_rows | int }} rows detected</div>
+          {% endif %}
+        </div>
+        <div class="file-badge-check">✓</div>
+      </div>
+
+      <!-- Filter type -->
+      <div class="section-head">Select Data Range</div>
+
+      <form id="rangeForm" action="/r" method="post">
+        <div class="filter-toggle">
+          <label class="filter-opt">
+            <input type="radio" name="filter_type" value="full" id="optFull" checked>
+            <div class="filter-opt-box">
+              <div class="fopt-dot"></div>
+              <div class="fopt-text">
+                <div class="fopt-title">Full Data</div>
+                <div class="fopt-desc">
+                  Analyze entire dataset<br>
+                  {% if min_date and max_date %}
+                  {{ min_date }} → {{ max_date }}
+                  {% else %}All available records{% endif %}
+                </div>
+              </div>
+            </div>
+          </label>
+          <label class="filter-opt">
+            <input type="radio" name="filter_type" value="range" id="optRange">
+            <div class="filter-opt-box">
+              <div class="fopt-dot"></div>
+              <div class="fopt-text">
+                <div class="fopt-title">Date Range</div>
+                <div class="fopt-desc">Filter by specific<br>From → To dates</div>
+              </div>
+            </div>
+          </label>
+        </div>
+
+        <!-- Date picker section (shown only when range selected) -->
+        <div class="date-range-section" id="dateSection">
+          {% if min_date and max_date %}
+          <div class="range-hint">
+            📅&nbsp; Available data: &nbsp;<strong>{{ min_date }}</strong>&nbsp; → &nbsp;<strong>{{ max_date }}</strong>
+          </div>
+          {% endif %}
+
+          <div class="date-grid">
+            <div class="date-field">
+              <label>From Date</label>
+              <input type="date" name="date_from" id="dateFrom"
+                {% if min_date %}min="{{ min_date }}" max="{{ max_date }}" value="{{ min_date }}"{% endif %}>
+            </div>
+            <div class="date-field">
+              <label>To Date</label>
+              <input type="date" name="date_to" id="dateTo"
+                {% if max_date %}min="{{ min_date }}" max="{{ max_date }}" value="{{ max_date }}"{% endif %}>
+            </div>
+          </div>
+
+          <div class="date-error" id="dateError">⚠ "To" date must be on or after "From" date.</div>
+        </div>
+
+        <button class="submit-btn" type="submit" id="submitBtn">▶ Generate Dashboard</button>
+      </form>
+
+      <a href="/" class="back-link">← Upload a different file</a>
+
+      <div class="footer">
+        <div class="footer-text">TARO CONNECT · REV 2.0</div>
+        <div class="status"><span class="status-dot"></span>File Ready</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Loader -->
+<div class="loader" id="loader">
+  <div class="loader-ring"></div>
+  <div class="loader-percent" id="loaderPercent">0<span>%</span></div>
+  <div class="loader-title">Processing Report</div>
+  <div class="loader-bar-track"><div class="loader-bar-fill" id="loaderBar"></div></div>
+  <div class="loader-sub" id="loaderSub">Initializing...</div>
+  <div class="loader-steps">
+    <div class="loader-step active" id="step0"></div>
+    <div class="loader-step" id="step1"></div>
+    <div class="loader-step" id="step2"></div>
+    <div class="loader-step" id="step3"></div>
+    <div class="loader-step" id="step4"></div>
+  </div>
+</div>
+
+<script>
+// Theme
+const saved = localStorage.getItem('theme') || 'light';
+document.documentElement.setAttribute('data-theme', saved);
+document.getElementById('themeBtn').textContent = saved === 'dark' ? '☀️' : '🌙';
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  document.getElementById('themeBtn').textContent = next === 'dark' ? '☀️' : '🌙';
+});
+
+// Show/hide date section based on radio
+document.querySelectorAll('input[name="filter_type"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    const section = document.getElementById('dateSection');
+    if (document.getElementById('optRange').checked) {
+      section.classList.add('visible');
+    } else {
+      section.classList.remove('visible');
+    }
+  });
+});
+
+// Date validation
+function validateDates() {
+  const from = document.getElementById('dateFrom').value;
+  const to   = document.getElementById('dateTo').value;
+  const err  = document.getElementById('dateError');
+  if (from && to && from > to) {
+    err.classList.add('visible');
+    return false;
+  }
+  err.classList.remove('visible');
+  return true;
+}
+document.getElementById('dateFrom').addEventListener('change', validateDates);
+document.getElementById('dateTo').addEventListener('change', validateDates);
+
+// Form submit → show loader
+document.getElementById('rangeForm').addEventListener('submit', function(e) {
+  const isRange = document.getElementById('optRange').checked;
+  if (isRange && !validateDates()) {
+    e.preventDefault();
+    return;
+  }
+  document.getElementById('loader').classList.add('active');
+
+  const percentEl = document.getElementById('loaderPercent');
+  const barEl     = document.getElementById('loaderBar');
+  const subEl     = document.getElementById('loaderSub');
+
+  function getStepIdx(pct) {
+    if (pct < 20) return 0; if (pct < 40) return 1;
+    if (pct < 70) return 2; if (pct < 90) return 3; return 4;
+  }
+  function setStep(idx) {
+    for (let i = 0; i < 5; i++) {
+      const s = document.getElementById('step' + i);
+      s.className = 'loader-step' + (i < idx ? ' done' : i === idx ? ' active' : '');
+    }
+  }
+
+  let displayPct = 0, targetPct = 5;
+  const animInterval = setInterval(() => {
+    if (displayPct < targetPct) {
+      displayPct = Math.min(displayPct + 1, targetPct);
+      percentEl.innerHTML = displayPct + '<span>%</span>';
+      barEl.style.width = displayPct + '%';
+      setStep(getStepIdx(displayPct));
+    }
+  }, 30);
+
+  const pollInterval = setInterval(() => {
+    fetch('/progress').then(r => r.json()).then(data => {
+      targetPct = data.percent || 0;
+      subEl.style.opacity = '0';
+      setTimeout(() => { subEl.textContent = data.status || ''; subEl.style.opacity = '1'; }, 150);
+    }).catch(() => {});
+  }, 400);
+
+  setTimeout(() => { clearInterval(animInterval); clearInterval(pollInterval); }, 180000);
+});
+</script>
+</body>
+</html>
