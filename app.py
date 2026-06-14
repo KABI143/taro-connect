@@ -51,8 +51,9 @@ MODE_DESCRIPTIONS = {0: "Manual Mode", 1: "Auto Mode", 2: "Timer Mode",
                      3: "Schedule Mode", 4: "Bypass Mode"}
 MODE_ICONS        = {0: "🔧", 1: "🤖", 2: "⏱", 3: "📅", 4: "⚡"}
 
-CRITICAL_ERRORS = {8, 16, 32, 4096, 8192, 16384, 32768, 65536, 262144, 524288, 786432}
-WARNING_ERRORS  = {1, 2, 4, 64, 128, 256, 512, 1024, 2048, 131072}
+CRITICAL_ERRORS = {8, 16}          # Short Circuit, Overload only
+WARNING_ERRORS  = {1, 2, 4, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192,
+                   16384, 32768, 65536, 131072, 262144, 524288, 786432}
 
 MAX_FILE_SIZE_MB   = 20
 ALLOWED_EXTENSIONS = {".xlsx", ".xls"}
@@ -61,7 +62,7 @@ VOLTAGE_COLS    = ["Line Voltage", "Line Voltage 2", "Line Voltage 3"]
 CURRENT_COLS    = ["Current Amp", "Current Amp2", "Current Amp3"]
 KEY_SENSOR_COLS = VOLTAGE_COLS + CURRENT_COLS + ["Pressure", "Flow Sensor", "Frequency"]
 
-OFFLINE_GAP_MINUTES = 10   # gaps larger than this = device offline
+OFFLINE_GAP_MINUTES = 3   # gaps larger than this = device offline
 
 STATS_COLS = [
     "DeviceId", "IoTHubName", "PumpPhaseType", "QueuedTime-IST",
@@ -72,6 +73,7 @@ STATS_COLS = [
 CHART_COLS = ["QueuedTime-IST"] + KEY_SENSOR_COLS + ["Signal", "PackCount", "NetType",
               "MotorRunningStatus", "Error CondMon"]
 
+#CHART_DOWNSAMPLE = 500
 CHART_DOWNSAMPLE = 999999 
 
 # ═══════════════════════════════════════════════════════
@@ -147,6 +149,64 @@ def group_avg_motor_on(df, cols):
     if not vals:
         return 0
     return round(sum(vals) / len(vals), 2)
+
+
+def calc_avg_voltage_no_fail(df, cols):
+    """Calculate average voltage excluding phase fail and power fail error codes.
+    Phase fail codes: 4096, 8192, 262144, 524288, 786432
+    Power failure code: 16384
+    """
+    phase_fail_codes = {4096, 8192, 262144, 524288, 786432}
+    power_fail_code = 16384
+    fail_codes = phase_fail_codes | {power_fail_code}
+    
+    if "Error CondMon" not in df.columns:
+        return group_avg(df, cols)
+    
+    error_col = pd.to_numeric(df["Error CondMon"], errors="coerce").fillna(0).astype(int)
+    no_fail_mask = ~error_col.isin(fail_codes)
+    
+    present = [c for c in cols if c in df.columns]
+    if not present:
+        return 0
+    
+    vals = [pd.to_numeric(df.loc[no_fail_mask, c], errors="coerce").mean() for c in present]
+    vals = [v for v in vals if not pd.isna(v)]
+    if not vals:
+        return 0
+    return round(sum(vals) / len(vals), 2)
+
+
+def col_stats_no_fail(df, col):
+    """Compute min/max/avg for a voltage column, excluding rows where a phase-fail
+    or power-fail error is active. Readings during those faults (0V / spikes) are
+    not representative of normal supply conditions.
+    Phase fail codes: 4096, 8192, 262144, 524288, 786432
+    Power failure code: 16384
+    """
+    phase_fail_codes = {4096, 8192, 262144, 524288, 786432}
+    power_fail_code = 16384
+    fail_codes = phase_fail_codes | {power_fail_code}
+
+    if col not in df.columns:
+        return 0, 0, 0
+
+    if "Error CondMon" in df.columns:
+        error_col = pd.to_numeric(df["Error CondMon"], errors="coerce").fillna(0).astype(int)
+        no_fail_mask = ~error_col.isin(fail_codes)
+        s = pd.to_numeric(df.loc[no_fail_mask, col], errors="coerce").dropna()
+    else:
+        s = pd.to_numeric(df[col], errors="coerce").dropna()
+
+    if s.empty:
+        return 0, 0, 0
+    return round(float(s.min()), 2), round(float(s.max()), 2), round(float(s.mean()), 2)
+
+
+def calc_avg_current_motor_on(df, cols):
+    """Calculate average current only when motor is running.
+    Current is 0 when motor is OFF, which skews the average."""
+    return group_avg_motor_on(df, cols)
 
 
 def minutes_to_dhm(total_minutes):
@@ -228,12 +288,18 @@ def compute_durations(df):
         err_code   = int(err.iloc[i])
         mode_code  = int(mode_s.iloc[i])
 
+        # FIX: Track error duration regardless of motor ON/OFF state.
+        # Errors like High Voltage, Phase Fail, Power Failure occur even when
+        # the motor is OFF — the old logic only counted inside `if is_running`
+        # which caused 0D:00H:00M for every error in this dataset.
+        if err_code != 0:
+            ec = result["error_duration_by_code"]
+            ec[err_code] = ec.get(err_code, 0) + diff
+
         if is_running:
             result["motor_running_mins"] += diff
             if err_code != 0:
                 result["error_running_mins"] += diff
-                ec = result["error_duration_by_code"]
-                ec[err_code] = ec.get(err_code, 0) + diff
             else:
                 result["no_error_running_mins"] += diff
             mr = result["mode_runtime"]
@@ -272,6 +338,7 @@ def compute_stats(df):
 
     # Error summary (count-based)
     error_summary = {}
+    error_count_by_code = {}
     if "Error CondMon" in df.columns:
         codes = pd.to_numeric(df["Error CondMon"], errors="coerce").dropna().astype(int)
         for code, count in codes.value_counts().items():
@@ -279,6 +346,7 @@ def compute_stats(df):
             severity = ("critical" if code in CRITICAL_ERRORS else
                         "warning"  if code in WARNING_ERRORS  else "info")
             error_summary[f"{code} - {desc}"] = {"count": int(count), "severity": severity}
+            error_count_by_code[code] = int(count)
 
     # ── Duration breakdown (single pass) ───────────────
     dur = compute_durations(df)
@@ -286,7 +354,8 @@ def compute_stats(df):
     total_log_mins        = dur["total_log_mins"] + dur["offline_mins"]
     motor_running_mins    = dur["motor_running_mins"]
     motor_idle_mins       = dur["motor_idle_mins"]
-    error_running_mins    = dur["error_running_mins"]
+    #error_running_mins    = dur["error_running_mins"]
+    error_running_mins = sum(dur["error_duration_by_code"].values())
     no_error_running_mins = dur["no_error_running_mins"]
     offline_mins          = dur["offline_mins"]
     error_duration_by_code = dur["error_duration_by_code"]
@@ -314,18 +383,23 @@ def compute_stats(df):
             "desc": ERROR_CODES.get(code, "Unknown Error"),
             "severity": ("critical" if code in CRITICAL_ERRORS else
                          "warning"  if code in WARNING_ERRORS  else "info"),
+            "count": error_count_by_code.get(code, 0),
             "duration": minutes_to_dhm(mins),
             "minutes": round(mins, 1),
         })
 
     def _s(col): return df[col] if col in df.columns else pd.Series(dtype=float)
 
-    # Voltage stats per phase — motor ON rows only
-    # (voltage reads valid even when motor OFF, but avg/min/max should reflect operating conditions)
-    v1_min, v1_max, v1_avg = col_stats_motor_on(df, "Line Voltage")
-    v2_min, v2_max, v2_avg = col_stats_motor_on(df, "Line Voltage 2")
-    v3_min, v3_max, v3_avg = col_stats_motor_on(df, "Line Voltage 3")
-    avg_voltage             = group_avg_motor_on(df, VOLTAGE_COLS)
+    # Voltage stats per phase — ALL rows included (errors, phase fail, power fail)
+    # Chart shows all data including fault rows, so KPI stats match chart data
+    v1_min, v1_max, v1_avg = col_stats(_s("Line Voltage"))
+    v2_min, v2_max, v2_avg = col_stats(_s("Line Voltage 2"))
+    v3_min, v3_max, v3_avg = col_stats(_s("Line Voltage 3"))
+    avg_voltage             = group_avg(df, VOLTAGE_COLS)
+
+    # Avg Voltage KPI card — phase fail + power fail rows EXCLUDED
+    # (0V / spike readings during faults skew the overall average badly)
+    avg_voltage_no_fail     = calc_avg_voltage_no_fail(df, VOLTAGE_COLS)
 
     # Current stats per phase — motor ON rows only
     # Current is 0 when motor is OFF — averaging all rows gives completely wrong (low) values
@@ -333,10 +407,13 @@ def compute_stats(df):
     c2_min, c2_max, c2_avg = col_stats_motor_on(df, "Current Amp2")
     c3_min, c3_max, c3_avg = col_stats_motor_on(df, "Current Amp3")
     avg_current             = group_avg_motor_on(df, CURRENT_COLS)
+    
+    # Kept for backward compatibility — same value as avg_current now
+    avg_current_motor_on_val = avg_current
 
     p_min,    p_max,    p_avg    = col_stats(_s("Pressure"))
     f_min,    f_max,    f_avg    = col_stats(_s("Flow Sensor"))
-    freq_min, freq_max, freq_avg = col_stats_motor_on(df, "Frequency")
+    freq_min, freq_max, freq_avg = col_stats(_s("Frequency"))
     sig_min,  sig_max,  sig_avg  = col_stats(_s("Signal"))
 
     pack_count_total = 0
@@ -410,11 +487,13 @@ def compute_stats(df):
         v2_min=v2_min, v2_max=v2_max, v2_avg=v2_avg,
         v3_min=v3_min, v3_max=v3_max, v3_avg=v3_avg,
         avg_voltage=avg_voltage,
+        avg_voltage_no_fail=avg_voltage_no_fail,  # NEW: Avg voltage excluding phase/power fail
         # Current phase stats
         c1_min=c1_min, c1_max=c1_max, c1_avg=c1_avg,
         c2_min=c2_min, c2_max=c2_max, c2_avg=c2_avg,
         c3_min=c3_min, c3_max=c3_max, c3_avg=c3_avg,
         avg_current=avg_current,
+        avg_current_motor_on=avg_current_motor_on_val,  # NEW: Avg current when motor running
         # Process params
         p_min=p_min,    p_max=p_max,    p_avg=p_avg,
         f_min=f_min,    f_max=f_max,    f_avg=f_avg,
@@ -430,6 +509,7 @@ def compute_stats(df):
         error_running_mins=error_running_mins,
         no_error_running_mins=no_error_running_mins,
         offline_mins=offline_mins,
+        error_duration_by_code=error_duration_by_code,
         # Health
         health_score=health_score,
         quality_findings=quality_findings,
@@ -674,7 +754,8 @@ def process():
     stats["total_log_time"]   = minutes_to_dhm(stats["total_log_mins"])
     stats["offline_time"]     = minutes_to_dhm(stats["offline_mins"])
     stats["idle_time"]        = minutes_to_dhm(stats["motor_idle_mins"])
-    stats["error_time"]       = minutes_to_dhm(stats["error_running_mins"])
+    #stats["error_time"]       = minutes_to_dhm(stats["error_running_mins"])
+    stats["error_time"]       = minutes_to_dhm(sum(stats["error_duration_by_code"].values()))
     stats["no_error_run_time"]= minutes_to_dhm(stats["no_error_running_mins"])
 
     set_progress(100, "Dashboard Ready!")
