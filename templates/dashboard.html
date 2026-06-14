@@ -320,7 +320,8 @@ table td { padding:10px 16px; border-bottom:1px solid var(--border); font-size:1
 table tr:last-child td { border-bottom:none; }
 table tr:hover td { background:rgba(59,126,248,0.025); }
 
-.td-count { font-family:'JetBrains Mono',monospace; color:var(--cyan); font-size:13px; }
+.td-count    { font-family:'JetBrains Mono',monospace; color:var(--cyan); font-size:13px; }
+.td-duration { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--gold); white-space:nowrap; }
 .td-code  { font-family:'JetBrains Mono',monospace; color:var(--muted); font-size:11px; }
 .sev-badge {
   display:inline-block; font-family:'JetBrains Mono',monospace; font-size:9px;
@@ -338,14 +339,28 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
 
 /* ── CHART PANELS ── */
 .chart-panel { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin-bottom:16px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.03); }
-.chart-head  { background:var(--card2); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; gap:10px; }
+.chart-head  { background:var(--card2); border-bottom:1px solid var(--border); padding:14px 20px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .ch-indicator { width:3px; height:18px; border-radius:2px; flex-shrink:0; }
 .ch-title { font-family:'Inter',sans-serif; font-size:13px; font-weight:700; color:var(--text); flex:1; }
 .ch-badge {
   font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.5px; color:var(--muted);
   background:var(--surface); border:1px solid var(--border2); border-radius:4px; padding:3px 8px;
 }
-.chart-body { padding:20px; }
+.chart-body { padding:20px; height:380px; position:relative; }
+
+/* ── ZOOM RESET BUTTON ── */
+.zoom-reset-btn {
+  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--muted); background:var(--surface); border:1px solid var(--border2);
+  border-radius:4px; padding:5px 10px; cursor:pointer; transition:all 0.15s; flex-shrink:0;
+  display:flex; align-items:center; gap:5px;
+}
+.zoom-reset-btn:hover { border-color:var(--accent); color:var(--accent); background:rgba(59,126,248,0.06); }
+.zoom-reset-btn:active { transform:scale(0.96); }
+.chart-zoom-hint {
+  font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1px; color:var(--muted);
+  text-align:right; padding:0 20px 10px; opacity:0.6;
+}
 .chart-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
 @media(max-width:900px){ .chart-grid-2{grid-template-columns:1fr} }
 
@@ -505,8 +520,8 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       </div>
       <div class="kpi-card">
         <div class="kpi-label">Avg Voltage</div>
-        <div class="kpi-value">{{ avg_voltage }}</div>
-        <div class="kpi-unit">V — 3-Phase Avg</div>
+        <div class="kpi-value">{{ avg_voltage_no_fail }}</div>
+        <div class="kpi-unit">V — 3-Phase Avg (Faults Excluded)</div>
         <div class="kpi-icon">⚡</div>
       </div>
       <div class="kpi-card red">
@@ -676,9 +691,9 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       <div class="minmax-card">
         <div class="minmax-title">📶 Signal Strength</div>
         <div class="minmax-row">
-          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ sig_min }} dBm</div></div>
-          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ sig_avg }} dBm</div></div>
-          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ sig_max }} dBm</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Min</div><div class="minmax-val mn">{{ sig_min }} %</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Avg</div><div class="minmax-val av">{{ sig_avg }} %</div></div>
+          <div class="minmax-item"><div class="minmax-lbl">Max</div><div class="minmax-val mx">{{ sig_max }} %</div></div>
         </div>
       </div>
     </div>
@@ -691,81 +706,19 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       <div class="sh-tag">Error &amp; Mode Analysis</div>
     </div>
 
-    <div class="table-grid">
-      <div class="data-table-box">
-        <div class="dtb-head"><div class="dtb-dot"></div>Error Condition Monitor</div>
-        <table>
-          <tr><th>Dec Code</th><th>Description</th><th>Severity</th><th>Count</th></tr>
-          {% for k, v in error_summary.items() %}
-          <tr>
-            <td class="td-code">{{ k.split(' - ')[0] }}</td>
-            <td>{{ k.split(' - ')[1] }}</td>
-            <td><span class="sev-badge sev-{{ v.severity }}">{{ v.severity }}</span></td>
-            <td class="td-count">{{ v.count }}</td>
-          </tr>
-          {% endfor %}
-        </table>
-      </div>
-      <div class="data-table-box">
-        <div class="dtb-head"><div class="dtb-dot green"></div>Operating Mode Distribution</div>
-        <table>
-          <tr><th>Code</th><th>Mode Description</th><th>Count</th><th>Actual Run Time</th></tr>
-          {% for desc, v in mode_summary.items() %}
-          <tr>
-            <td class="td-code">{{ v.code }}</td>
-            <td><span class="mode-badge">{{ v.icon }} {{ desc }}</span></td>
-            <td class="td-count">{{ v.count }}</td>
-            <td>{{ v.duration }}</td>
-          </tr>
-          {% endfor %}
-        </table>
-      </div>
-    </div>
-
-    <!-- ═══ SECTION: DATA QUALITY ═══ -->
-    <div class="section-head">
-      <div class="sh-bar"></div>
-      <div class="sh-title">Data Quality Check</div>
-      <div class="sh-line"></div>
-      <div class="sh-tag">Sensor Completeness</div>
-    </div>
-
-    <div class="quality-grid">
-      <div class="quality-box">
-        <div class="quality-head"><div class="dtb-dot green"></div>Quality Overview</div>
-        <div class="quality-stats">
-          <div class="qstat"><div class="qstat-val ok">{{ quality_ok }}</div><div class="qstat-lbl">Good</div></div>
-          <div class="qstat"><div class="qstat-val warn">{{ quality_warn }}</div><div class="qstat-lbl">Warnings</div></div>
-          <div class="qstat"><div class="qstat-val miss">{{ quality_miss }}</div><div class="qstat-lbl">Missing</div></div>
-        </div>
-        <div class="quality-list">
-          {% for f in quality_findings[:5] %}
-          <div class="qitem">
-            <span class="qitem-icon">{% if f.status == 'ok' %}✅{% elif f.status == 'warn' %}⚠️{% else %}❌{% endif %}</span>
-            <span class="qitem-field">{{ f.field }}</span>
-            <div class="qitem-bar-wrap">
-              <div class="qitem-bar {{ f.status }}" style="width:{{ f.pct }}%"></div>
-            </div>
-            <span class="qitem-msg">{{ f.message }}</span>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="quality-box">
-        <div class="quality-head"><div class="dtb-dot"></div>Sensor Details</div>
-        <div class="quality-list" style="padding-top:8px;">
-          {% for f in quality_findings[5:] %}
-          <div class="qitem">
-            <span class="qitem-icon">{% if f.status == 'ok' %}✅{% elif f.status == 'warn' %}⚠️{% else %}❌{% endif %}</span>
-            <span class="qitem-field">{{ f.field }}</span>
-            <div class="qitem-bar-wrap">
-              <div class="qitem-bar {{ f.status }}" style="width:{{ f.pct }}%"></div>
-            </div>
-            <span class="qitem-msg">{{ f.message }}</span>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
+    <div class="data-table-box">
+      <div class="dtb-head"><div class="dtb-dot green"></div>Operating Mode Distribution</div>
+      <table>
+        <tr><th>Code</th><th>Mode Description</th><th>Count</th><th>Actual Run Time</th></tr>
+        {% for desc, v in mode_summary.items() %}
+        <tr>
+          <td class="td-code">{{ v.code }}</td>
+          <td><span class="mode-badge">{{ v.icon }} {{ desc }}</span></td>
+          <td class="td-count">{{ v.count }}</td>
+          <td>{{ v.duration }}</td>
+        </tr>
+        {% endfor %}
+      </table>
     </div>
 
     <!-- ═══ SECTION: ELECTRICAL CHARTS ═══ -->
@@ -782,8 +735,10 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="ch-indicator" style="background:linear-gradient(180deg,#dc2626,#f97316);"></div>
         <div class="ch-title">Voltage Trend — R / Y / B Phase</div>
         <div class="ch-badge">3-PHASE · V</div>
+        <button class="zoom-reset-btn" data-chart="voltage" title="Reset Zoom">⟲ Reset Zoom</button>
       </div>
-      <div class="chart-body"><canvas id="voltageChart" height="90"></canvas></div>
+      <div class="chart-zoom-hint">🔍 Scroll / Pinch to Zoom · Drag to Pan</div>
+      <div class="chart-body"><canvas id="voltageChart" height="100"></canvas></div>
       <div class="chart-stats-bar">
         <div class="chart-stat-item"><div class="csi-lbl">R-Phase Min</div><div class="csi-val mn">{{ v1_min }} V</div></div>
         <div class="chart-stat-item"><div class="csi-lbl">R-Phase Avg</div><div class="csi-val av">{{ v1_avg }} V</div></div>
@@ -807,8 +762,10 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="ch-indicator" style="background:linear-gradient(180deg,#d97706,#f59e0b);"></div>
         <div class="ch-title">Current Trend — R / Y / B Phase</div>
         <div class="ch-badge">3-PHASE · A</div>
+        <button class="zoom-reset-btn" data-chart="current" title="Reset Zoom">⟲ Reset Zoom</button>
       </div>
-      <div class="chart-body"><canvas id="currentChart" height="90"></canvas></div>
+      <div class="chart-zoom-hint">🔍 Scroll / Pinch to Zoom · Drag to Pan</div>
+      <div class="chart-body"><canvas id="currentChart" height="100"></canvas></div>
       <div class="chart-stats-bar">
         <div class="chart-stat-item"><div class="csi-lbl">R-Phase Min</div><div class="csi-val mn">{{ c1_min }} A</div></div>
         <div class="chart-stat-item"><div class="csi-lbl">R-Phase Avg</div><div class="csi-val av">{{ c1_avg }} A</div></div>
@@ -834,75 +791,81 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       <div class="sh-tag">Pressure · Flow · Frequency · Signal</div>
     </div>
 
-    <div class="chart-grid-2">
-      {% if has_pressure %}
-      <div class="chart-panel" style="margin-bottom:0;">
-        <div class="chart-head">
-          <div class="ch-indicator" style="background:var(--cyan);"></div>
-          <div class="ch-title">Pressure</div><div class="ch-badge">BAR</div>
-        </div>
-        <div class="chart-body"><canvas id="pressureChart" height="120"></canvas></div>
-        <div class="chart-stats-bar">
-          <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ p_min }}</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ p_avg }}</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ p_max }}</div></div>
-        </div>
+    {% if has_pressure %}
+    <div class="chart-panel">
+      <div class="chart-head">
+        <div class="ch-indicator" style="background:var(--cyan);"></div>
+        <div class="ch-title">Pressure</div><div class="ch-badge">BAR</div>
+        <button class="zoom-reset-btn" data-chart="pressure" title="Reset Zoom">⟲ Reset Zoom</button>
       </div>
-      {% else %}
-      <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">🔵 Pressure data not available</div></div>
-      {% endif %}
-      {% if has_flow %}
-      <div class="chart-panel" style="margin-bottom:0;">
-        <div class="chart-head">
-          <div class="ch-indicator" style="background:var(--green);"></div>
-          <div class="ch-title">Flow Sensor</div><div class="ch-badge">m³/h</div>
-        </div>
-        <div class="chart-body"><canvas id="flowChart" height="120"></canvas></div>
-        <div class="chart-stats-bar">
-          <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ f_min }}</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ f_avg }}</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ f_max }}</div></div>
-        </div>
+      <div class="chart-zoom-hint">🔍 Scroll / Pinch to Zoom · Drag to Pan</div>
+      <div class="chart-body"><canvas id="pressureChart" height="100"></canvas></div>
+      <div class="chart-stats-bar">
+        <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ p_min }}</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ p_avg }}</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ p_max }}</div></div>
       </div>
-      {% else %}
-      <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">🟢 Flow data not available</div></div>
-      {% endif %}
     </div>
+    {% else %}
+    <div class="chart-panel"><div class="no-data-msg">🔵 Pressure data not available</div></div>
+    {% endif %}
 
-    <div class="chart-grid-2" style="margin-top:16px;">
-      {% if has_frequency %}
-      <div class="chart-panel" style="margin-bottom:0;">
-        <div class="chart-head">
-          <div class="ch-indicator" style="background:var(--purple);"></div>
-          <div class="ch-title">Frequency</div><div class="ch-badge">Hz</div>
-        </div>
-        <div class="chart-body"><canvas id="frequencyChart" height="120"></canvas></div>
-        <div class="chart-stats-bar">
-          <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ freq_min }} Hz</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ freq_avg }} Hz</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ freq_max }} Hz</div></div>
-        </div>
+    {% if has_flow %}
+    <div class="chart-panel">
+      <div class="chart-head">
+        <div class="ch-indicator" style="background:var(--green);"></div>
+        <div class="ch-title">Flow Sensor</div><div class="ch-badge">m³/h</div>
+        <button class="zoom-reset-btn" data-chart="flow" title="Reset Zoom">⟲ Reset Zoom</button>
       </div>
-      {% else %}
-      <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">🟣 Frequency data not available</div></div>
-      {% endif %}
-      {% if has_signal %}
-      <div class="chart-panel" style="margin-bottom:0;">
-        <div class="chart-head">
-          <div class="ch-indicator" style="background:var(--gold);"></div>
-          <div class="ch-title">Signal Strength</div><div class="ch-badge">dBm</div>
-        </div>
-        <div class="chart-body"><canvas id="signalChart" height="120"></canvas></div>
-        <div class="chart-stats-bar">
-          <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ sig_min }} dBm</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ sig_avg }} dBm</div></div>
-          <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ sig_max }} dBm</div></div>
-        </div>
+      <div class="chart-zoom-hint">🔍 Scroll / Pinch to Zoom · Drag to Pan</div>
+      <div class="chart-body"><canvas id="flowChart" height="100"></canvas></div>
+      <div class="chart-stats-bar">
+        <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ f_min }}</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ f_avg }}</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ f_max }}</div></div>
       </div>
-      {% else %}
-      <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">📶 Signal data not available</div></div>
-      {% endif %}
     </div>
+    {% else %}
+    <div class="chart-panel"><div class="no-data-msg">🟢 Flow data not available</div></div>
+    {% endif %}
+
+    {% if has_frequency %}
+    <div class="chart-panel">
+      <div class="chart-head">
+        <div class="ch-indicator" style="background:var(--purple);"></div>
+        <div class="ch-title">Frequency</div><div class="ch-badge">Hz</div>
+        <button class="zoom-reset-btn" data-chart="frequency" title="Reset Zoom">⟲ Reset Zoom</button>
+      </div>
+      <div class="chart-zoom-hint">🔍 Scroll / Pinch to Zoom · Drag to Pan</div>
+      <div class="chart-body"><canvas id="frequencyChart" height="100"></canvas></div>
+      <div class="chart-stats-bar">
+        <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ freq_min }} Hz</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ freq_avg }} Hz</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ freq_max }} Hz</div></div>
+      </div>
+    </div>
+    {% else %}
+    <div class="chart-panel"><div class="no-data-msg">🟣 Frequency data not available</div></div>
+    {% endif %}
+
+    {% if has_signal %}
+    <div class="chart-panel">
+      <div class="chart-head">
+        <div class="ch-indicator" style="background:var(--gold);"></div>
+        <div class="ch-title">Signal Strength</div><div class="ch-badge">%</div>
+        <button class="zoom-reset-btn" data-chart="signal" title="Reset Zoom">⟲ Reset Zoom</button>
+      </div>
+      <div class="chart-zoom-hint">🔍 Scroll / Pinch to Zoom · Drag to Pan</div>
+      <div class="chart-body"><canvas id="signalChart" height="100"></canvas></div>
+      <div class="chart-stats-bar">
+        <div class="chart-stat-item"><div class="csi-lbl">Min</div><div class="csi-val mn">{{ sig_min }} %</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Avg</div><div class="csi-val av">{{ sig_avg }} %</div></div>
+        <div class="chart-stat-item"><div class="csi-lbl">Max</div><div class="csi-val mx">{{ sig_max }} %</div></div>
+      </div>
+    </div>
+    {% else %}
+    <div class="chart-panel"><div class="no-data-msg">📶 Signal data not available</div></div>
+    {% endif %}
 
     <!-- ═══ SECTION: CONNECTIVITY ═══ -->
     <div class="section-head">
@@ -912,30 +875,33 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       <div class="sh-tag">Network · Pack Count</div>
     </div>
 
-    <div class="chart-grid-2">
-      {% if has_pack %}
-      <div class="chart-panel" style="margin-bottom:0;">
-        <div class="chart-head">
-          <div class="ch-indicator" style="background:var(--accent);"></div>
-          <div class="ch-title">Pack Count Trend</div><div class="ch-badge">PACKETS</div>
-        </div>
-        <div class="chart-body"><canvas id="packChart" height="120"></canvas></div>
+    {% if has_pack %}
+    <div class="chart-panel">
+      <div class="chart-head">
+        <div class="ch-indicator" style="background:var(--accent);"></div>
+        <div class="ch-title">Pack Count Trend</div><div class="ch-badge">PACKETS</div>
+        <button class="zoom-reset-btn" data-chart="pack" title="Reset Zoom">⟲ Reset Zoom</button>
       </div>
-      {% else %}
-      <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">📦 Pack Count data not available</div></div>
-      {% endif %}
-      {% if has_network %}
-      <div class="chart-panel" style="margin-bottom:0;">
-        <div class="chart-head">
-          <div class="ch-indicator" style="background:var(--cyan);"></div>
-          <div class="ch-title">2G / 4G Network — {{ network_pct_4g }}% on 4G</div><div class="ch-badge">NET TYPE</div>
-        </div>
-        <div class="chart-body"><canvas id="networkChart" height="120"></canvas></div>
-      </div>
-      {% else %}
-      <div class="chart-panel" style="margin-bottom:0;"><div class="no-data-msg">📡 Network type data not available</div></div>
-      {% endif %}
+      <div class="chart-zoom-hint">🔍 Scroll / Pinch to Zoom · Drag to Pan</div>
+      <div class="chart-body"><canvas id="packChart" height="100"></canvas></div>
     </div>
+    {% else %}
+    <div class="chart-panel"><div class="no-data-msg">📦 Pack Count data not available</div></div>
+    {% endif %}
+
+    {% if has_network %}
+    <div class="chart-panel">
+      <div class="chart-head">
+        <div class="ch-indicator" style="background:var(--cyan);"></div>
+        <div class="ch-title">2G / 4G Network — {{ network_pct_4g }}% on 4G</div><div class="ch-badge">NET TYPE</div>
+        <button class="zoom-reset-btn" data-chart="network" title="Reset Zoom">⟲ Reset Zoom</button>
+      </div>
+      <div class="chart-zoom-hint">🔍 Scroll / Pinch to Zoom · Drag to Pan</div>
+      <div class="chart-body"><canvas id="networkChart" height="100"></canvas></div>
+    </div>
+    {% else %}
+    <div class="chart-panel"><div class="no-data-msg">📡 Network type data not available</div></div>
+    {% endif %}
 
   </div>
 
@@ -953,12 +919,13 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
     <div class="data-table-box" style="margin-bottom:16px;">
       <div class="dtb-head"><div class="dtb-dot" style="background:var(--red);"></div>Error Duration by Fault Code</div>
       <table>
-        <tr><th>Code</th><th>Description</th><th>Severity</th><th>Duration</th></tr>
+        <tr><th>Code</th><th>Description</th><th>Severity</th><th>Count</th><th>Duration</th></tr>
         {% for row in error_duration_table %}
         <tr>
           <td class="td-code">{{ row.code }}</td>
           <td>{{ row.desc }}</td>
           <td><span class="sev-badge sev-{{ row.severity }}">{{ row.severity }}</span></td>
+          <td class="td-count">{{ row.count }}</td>
           <td style="font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--cyan);">{{ row.duration }}</td>
         </tr>
         {% endfor %}
@@ -1092,6 +1059,7 @@ function makeOptions() {
   const c = getThemeColors();
   return {
     responsive: true,
+    maintainAspectRatio: false,
     animation: { duration:700, easing:'easeInOutQuart' },
     interaction: { mode:'index', intersect:false },
 
@@ -1218,7 +1186,7 @@ function buildCharts() {
     charts.signal = new Chart(document.getElementById('signalChart'), {
       type:'line', data:{ labels, datasets:[
         { label:'Signal Strength', data:{{ signal|tojson }}, borderColor:'#d97706', backgroundColor:'rgba(217,119,6,0.06)', fill:true, tension:0.3 }
-      ]}, options: { ...opts, plugins:{ ...opts.plugins, tooltip:{ ...opts.plugins.tooltip, callbacks:{ label: ctx => `Signal: ${ctx.parsed.y} dBm` } } } }
+      ]}, options: { ...opts, plugins:{ ...opts.plugins, tooltip:{ ...opts.plugins.tooltip, callbacks:{ label: ctx => `Signal: ${ctx.parsed.y} %` } } } }
     });
   }
 
@@ -1246,6 +1214,14 @@ function buildCharts() {
 }
 
 buildCharts();
+
+// ── Zoom reset buttons ─────────────────────────────────
+document.querySelectorAll('.zoom-reset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const chart = charts[btn.dataset.chart];
+    if (chart) chart.resetZoom();
+  });
+});
 
 // ── Hide loader ────────────────────────────────────────
 window.addEventListener('load', () => {
