@@ -438,16 +438,6 @@ def compute_stats(df):
         if   code in CRITICAL_ERRORS: score -= min(15, cnt * 3)
         elif code in WARNING_ERRORS:  score -= min(8,  cnt)
         else:                          score -= min(4,  cnt * 0.5)
-    if avg_voltage > 0:
-        score -= min(20, abs(avg_voltage - 415) / 415 * 60)
-    present_c = [c for c in CURRENT_COLS if c in df.columns]
-    if len(present_c) == 3:
-        means   = [pd.to_numeric(df[c], errors="coerce").mean() for c in present_c]
-        overall = sum(means) / 3
-        if overall > 0:
-            score -= min(20, max(abs(m - overall) / overall for m in means) * 40)
-    present_k = sum(1 for c in KEY_SENSOR_COLS + ["Signal"] if c in df.columns)
-    score -= (1 - present_k / (len(KEY_SENSOR_COLS) + 1)) * 20
     health_score = max(0, min(100, round(score, 1)))
 
     # Data quality
@@ -716,8 +706,8 @@ def process():
     set_progress(90, "Building Dashboard...")
 
     hs = stats["health_score"]
-    health_label = ("Excellent" if hs >= 85 else "Good" if hs >= 70 else "Fair" if hs >= 50 else "Poor")
-    health_color = ("green"     if hs >= 85 else "blue" if hs >= 70 else "gold" if hs >= 50 else "red")
+    health_label = ("Excellent" if hs == 100 else "Good" if hs >= 85 else "Fair" if hs >= 50 else "Poor")
+    health_color = ("green"     if hs == 100 else "blue" if hs >= 85 else "gold" if hs >= 50 else "red")
 
     es             = stats["error_summary"]
     critical_count = sum(v["count"] for v in es.values() if v["severity"] == "critical")
