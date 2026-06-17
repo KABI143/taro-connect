@@ -420,6 +420,9 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
 .dur-label { font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
 .dur-value { font-family:'Inter',sans-serif; font-size:16px; font-weight:800; color:var(--text); line-height:1.2; letter-spacing:-0.5px; }
 .dur-icon  { position:absolute; bottom:10px; right:12px; font-size:28px; opacity:0.18; line-height:1; }
+.dur-ts-row { display:flex; align-items:center; gap:6px; margin-top:6px; }
+.dur-ts-label { font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+.dur-ts-val { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600; color:var(--accent); }
 
 /* ── FOOTER ── */
 .footer {
@@ -948,6 +951,14 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
         <div class="dur-label">Total Log Duration</div>
         <div class="dur-value">{{ total_log_time }}</div>
         <div class="dur-icon">📋</div>
+        <div class="dur-ts-row">
+          <span class="dur-ts-label">🕐 First</span>
+          <span class="dur-ts-val">{{ first_timestamp }}</span>
+        </div>
+        <div class="dur-ts-row">
+          <span class="dur-ts-label">🕐 Last</span>
+          <span class="dur-ts-val">{{ last_timestamp }}</span>
+        </div>
       </div>
       <div class="dur-card green">
         <div class="dur-label">Motor Running Duration</div>
