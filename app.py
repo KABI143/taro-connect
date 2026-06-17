@@ -183,11 +183,12 @@ def calc_avg_voltage_no_fail(df, cols):
 
 
 def minutes_to_dhm(total_minutes):
-    total_minutes = int(total_minutes)
-    d = total_minutes // 1440
-    h = (total_minutes % 1440) // 60
-    m = total_minutes % 60
-    return f"{d}D : {h:02d}H : {m:02d}M"
+    total_seconds = round(total_minutes * 60)
+    d = total_seconds // 86400
+    h = (total_seconds % 86400) // 3600
+    m = (total_seconds % 3600) // 60
+    s = total_seconds % 60
+    return f"{d}D : {h:02d}H : {m:02d}M : {s:02d}S"
 
 
 def downsample_series(series, max_pts=CHART_DOWNSAMPLE):
@@ -260,7 +261,12 @@ def compute_durations(df):
             else:
                 result["no_error_running_mins"] += diff
         else:
-            result["motor_idle_mins"] += diff
+            # FIX: Idle should only count when motor is OFF *and* no error is
+            # active. If motor is off but a fault is present, that time is
+            # already captured in error_duration_by_code above — counting it
+            # as "idle" too was double-counting it.
+            if err_code == 0:
+                result["motor_idle_mins"] += diff
 
     return result
 
@@ -292,10 +298,14 @@ def compute_stats(df):
     pump_phase = ("Three Phase Pump" if _raw == "1" else "Single Phase Pump" if _raw == "0" else _raw)
 
     date_range = "—"
+    first_timestamp = "—"
+    last_timestamp = "—"
     if "QueuedTime-IST" in df.columns:
         ts = parse_ist_column(df["QueuedTime-IST"]).dropna()
         if not ts.empty:
             date_range = f"{ts.min().strftime('%d %b %Y')} → {ts.max().strftime('%d %b %Y')}"
+            first_timestamp = ts.min().strftime('%d %b %Y %H:%M:%S')
+            last_timestamp  = ts.max().strftime('%d %b %Y %H:%M:%S')
 
     start_count = 0
     if "MotorRunningStatus" in df.columns:
@@ -322,8 +332,9 @@ def compute_stats(df):
     error_duration_by_code = dur["error_duration_by_code"]
     error_running_mins    = sum(dur["error_duration_by_code"].values())
 
-    device_running = get_device_running_mins(df)
-    motor_running_mins = device_running if device_running is not None and device_running >= 0 else dur["motor_running_mins"]
+    # Always use timestamp-based calculation for accuracy
+    # (Total Running Time column uses integer minutes — loses fractional seconds)
+    motor_running_mins = dur["motor_running_mins"]
 
     mode_summary = {}
     if "ModeOfOperating" in df.columns:
@@ -454,6 +465,7 @@ def compute_stats(df):
         sig_min=sig_min, sig_max=sig_max, sig_avg=sig_avg,  # FIX #4: sig_max was incorrectly assigned sig_avg
         pack_count_total=pack_count_total, net_4g_count=net_4g_count,
         net_2g_count=net_2g_count, network_pct_4g=network_pct_4g,
+        first_timestamp=first_timestamp, last_timestamp=last_timestamp,
         total_log_mins=total_log_mins, motor_running_mins=motor_running_mins,
         motor_idle_mins=motor_idle_mins, error_running_mins=error_running_mins,
         no_error_running_mins=no_error_running_mins, offline_mins=offline_mins,
