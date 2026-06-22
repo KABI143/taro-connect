@@ -424,6 +424,97 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
 .dur-ts-label { font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
 .dur-ts-val { font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:600; color:var(--accent); }
 
+/* ── FILTER SIDEBAR TOGGLE ── */
+.filter-sidebar {
+  position: fixed; top: 0; right: -320px; width: 320px; height: 100vh;
+  background: var(--surface); border-left: 1px solid var(--border2);
+  z-index: 500; transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
+  box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.filter-sidebar.open { right: 0; }
+.filter-sidebar-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.25); z-index: 499;
+  opacity: 0; pointer-events: none; transition: opacity 0.3s;
+}
+.filter-sidebar-overlay.show { opacity: 1; pointer-events: all; }
+
+.fsb-header {
+  background: var(--card2); border-bottom: 1px solid var(--border);
+  padding: 18px 20px; display: flex; align-items: center; gap: 10px;
+}
+.fsb-title { font-family:'Inter',sans-serif; font-size: 15px; font-weight: 800; color: var(--text); flex: 1; }
+.fsb-close {
+  width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border2);
+  background: var(--card); color: var(--muted); font-size: 18px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+}
+.fsb-close:hover { border-color: var(--red); color: var(--red); }
+
+.fsb-body { padding: 24px 20px; display: flex; flex-direction: column; gap: 18px; flex: 1; }
+.fsb-group { display: flex; flex-direction: column; gap: 6px; }
+.fsb-lbl { font-family:'JetBrains Mono',monospace; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.fsb-input {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--border2); border-radius: 8px;
+  background: var(--card); color: var(--text); font-size: 13px;
+  font-family: 'JetBrains Mono', monospace; outline: none; transition: border 0.2s, box-shadow 0.2s;
+}
+.fsb-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59,126,248,0.15); }
+
+.fsb-btn-apply {
+  width: 100%; padding: 10px; background: var(--accent); color: #fff;
+  border: none; border-radius: 8px; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: opacity 0.2s, transform 0.1s; letter-spacing: 0.5px;
+}
+.fsb-btn-apply:hover { opacity: 0.88; transform: translateY(-1px); }
+.fsb-btn-reset {
+  width: 100%; padding: 10px; background: var(--card2); color: var(--muted);
+  border: 1px solid var(--border2); border-radius: 8px; font-size: 13px;
+  font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+}
+.fsb-btn-reset:hover { opacity: 0.75; }
+.fsb-divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+.fsb-badge {
+  font-size: 11px; padding: 6px 12px; background: rgba(59,126,248,0.1);
+  color: var(--accent); border-radius: 8px; border: 1px solid rgba(59,126,248,0.2);
+  font-weight: 600; text-align: center; font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.5px;
+}
+
+/* Filter toggle pill button on topbar */
+.filter-toggle-btn {
+  background: var(--card); border: 1px solid var(--border2); color: var(--text);
+  padding: 7px 14px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+  letter-spacing: 0.5px; cursor: pointer; border-radius: 8px; transition: all 0.2s;
+  display: flex; align-items: center; gap: 6px;
+}
+.filter-toggle-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(59,126,248,0.05); }
+.filter-toggle-btn .ftb-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: none;
+}
+.filter-toggle-btn.active .ftb-dot { display: block; }
+
+/* ── FILTER LOADING OVERLAY ── */
+#filterLoader {
+  position: fixed; inset: 0; background: var(--bg);
+  display: none; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
+  z-index: 99998;
+}
+#filterLoader.show { display: flex; }
+.fl-ring {
+  width: 60px; height: 60px; border-radius: 50%;
+  border: 2px solid var(--border2); border-top: 2px solid var(--accent);
+  animation: spin 0.9s linear infinite; position: relative;
+}
+.fl-ring::after {
+  content: ''; position: absolute; inset: 8px; border-radius: 50%;
+  border: 1px solid var(--border2); border-bottom: 1px solid var(--accent2);
+  animation: spin 1.5s linear infinite reverse;
+}
+.fl-title { font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text); }
+.fl-sub   { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); animation: blink 1.4s step-end infinite; }
+
 /* ── FOOTER ── */
 .footer {
   background:var(--surface); border-top:1px solid var(--border);
@@ -436,6 +527,51 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
   animation:pulse-live 2s ease-in-out infinite;
 }
 @keyframes pulse-live { 0%,100%{box-shadow:0 0 0 0 rgba(5,150,105,0.5)} 50%{box-shadow:0 0 0 5px rgba(5,150,105,0)} }
+/* ── DATE FILTER BAR ── */
+.date-filter-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 28px;
+  position: sticky; top: 0; z-index: 90;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.dff-label {
+  font-size: 12px; font-weight: 600; color: var(--accent); white-space: nowrap;
+}
+.dff-group {
+  display: flex; align-items: center; gap: 6px;
+}
+.dff-lbl {
+  font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px;
+}
+.dff-input {
+  padding: 5px 10px; border: 1px solid var(--border2); border-radius: 7px;
+  background: var(--card); color: var(--text); font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  outline: none; transition: border 0.2s, box-shadow 0.2s;
+}
+.dff-input:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59,126,248,0.15);
+}
+.dff-btn-apply {
+  padding: 6px 18px; background: var(--accent); color: #fff;
+  border: none; border-radius: 7px; font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+  white-space: nowrap;
+}
+.dff-btn-apply:hover { opacity: 0.88; transform: translateY(-1px); }
+.dff-btn-reset {
+  padding: 6px 14px; background: var(--card2); color: var(--muted);
+  border: 1px solid var(--border2); border-radius: 7px; font-size: 12px;
+  font-weight: 600; cursor: pointer; transition: opacity 0.2s;
+  white-space: nowrap;
+}
+.dff-btn-reset:hover { opacity: 0.75; }
+.dff-badge {
+  font-size: 11px; padding: 4px 10px; background: rgba(59,126,248,0.1);
+  color: var(--accent); border-radius: 20px; border: 1px solid rgba(59,126,248,0.2);
+  font-weight: 600;
+}
 </style>
 </head>
 <body>
@@ -457,6 +593,10 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
     </div>
     <div class="topbar-right">
       <div class="sys-time" id="sysTime">--:--:--</div>
+      <button class="filter-toggle-btn {% if filter_applied %}active{% endif %}" id="filterToggleBtn" title="Open date filter">
+        <span class="ftb-dot"></span>
+        📅 Filter by Date
+      </button>
       <button class="theme-btn" id="themeBtn" title="Toggle dark/light mode">🌙</button>
       <a href="/" class="back-btn">↩ New Report</a>
     </div>
@@ -489,6 +629,56 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       <div class="info-label">Status</div>
       <div class="info-val green">✓ Complete</div>
     </div>
+    </div>
+  </div>
+
+  <!-- FILTER LOADING OVERLAY -->
+  <div id="filterLoader">
+    <div class="fl-ring"></div>
+    <div class="fl-title">Applying Filter</div>
+    <div class="fl-sub">Fetching filtered data...</div>
+  </div>
+
+  <!-- DATE FILTER SIDEBAR OVERLAY -->
+  <div class="filter-sidebar-overlay" id="filterOverlay"></div>
+
+  <!-- DATE FILTER SIDEBAR -->
+  <div class="filter-sidebar" id="filterSidebar">
+    <div class="fsb-header">
+      <span style="font-size:18px;">📅</span>
+      <div class="fsb-title">Filter by Date</div>
+      <button class="fsb-close" id="filterSidebarClose">✕</button>
+    </div>
+    <div class="fsb-body">
+      {% if filter_applied %}
+      <div class="fsb-badge">🔍 Filtered: {{ filter_from }} → {{ filter_to }}</div>
+      <hr class="fsb-divider">
+      {% endif %}
+      <form method="POST" action="/r" id="dateFilterForm">
+        <input type="hidden" name="filter_type" id="filterTypeInput" value="range">
+        <div style="display:flex;flex-direction:column;gap:18px;">
+          <div class="fsb-group">
+            <label class="fsb-lbl">From Date</label>
+            <input type="date" name="date_from" id="dateFrom" class="fsb-input"
+                   value="{{ filter_from or data_min_date or '' }}"
+                   min="{{ data_min_date or '' }}" max="{{ data_max_date or '' }}">
+          </div>
+          <div class="fsb-group">
+            <label class="fsb-lbl">To Date</label>
+            <input type="date" name="date_to" id="dateTo" class="fsb-input"
+                   value="{{ filter_to or data_max_date or '' }}"
+                   min="{{ data_min_date or '' }}" max="{{ data_max_date or '' }}">
+          </div>
+          <button type="submit" class="fsb-btn-apply" id="applyFilterBtn"
+                  onclick="document.getElementById('filterTypeInput').value='range'; showFilterLoader();">
+            ✓ Apply Filter
+          </button>
+          <button type="submit" class="fsb-btn-reset"
+                  onclick="document.getElementById('filterTypeInput').value='all';document.getElementById('dateFrom').value='{{ data_min_date or '' }}';document.getElementById('dateTo').value='{{ data_max_date or '' }}'; showFilterLoader();">
+            ↺ Show All Data
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -1232,6 +1422,36 @@ document.querySelectorAll('.zoom-reset-btn').forEach(btn => {
     const chart = charts[btn.dataset.chart];
     if (chart) chart.resetZoom();
   });
+});
+
+// ── Filter Loader ──────────────────────────────────────
+function showFilterLoader() {
+  const loader = document.getElementById('filterLoader');
+  loader.classList.add('show');
+}
+
+// ── Filter Sidebar ─────────────────────────────────────
+const filterSidebar  = document.getElementById('filterSidebar');
+const filterOverlay  = document.getElementById('filterOverlay');
+const filterToggle   = document.getElementById('filterToggleBtn');
+const filterClose    = document.getElementById('filterSidebarClose');
+
+function openFilterSidebar() {
+  filterSidebar.classList.add('open');
+  filterOverlay.classList.add('show');
+}
+function closeFilterSidebar() {
+  filterSidebar.classList.remove('open');
+  filterOverlay.classList.remove('show');
+}
+
+filterToggle.addEventListener('click', openFilterSidebar);
+filterClose.addEventListener('click', closeFilterSidebar);
+filterOverlay.addEventListener('click', closeFilterSidebar);
+
+// ESC key to close
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeFilterSidebar();
 });
 
 // ── Hide loader ────────────────────────────────────────
