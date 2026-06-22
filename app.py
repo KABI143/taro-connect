@@ -581,9 +581,102 @@ def upload():
     session["max_date"] = max_date
     session["total_rows"] = total_rows
 
-    set_progress(25, "File ready — select date range...")
-    return render_template("date_range.html", filename=filename,
-                           min_date=min_date, max_date=max_date, total_rows=total_rows)
+    set_progress(25, "File ready — processing full data...")
+    # Skip date range selection page — process full data directly
+    # Store for dashboard filter use
+    session["date_from"] = min_date
+    session["date_to"] = max_date
+
+    # Auto-process with no date filter (full data)
+    use_filter = False
+    date_from = ""
+    date_to = ""
+
+    set_progress(30, "Reading Excel...")
+    try:
+        buf2 = io.BytesIO(file_bytes)
+    except Exception as e:
+        set_progress(0, "Idle")
+        return render_template("index.html", upload_error=f"Could not buffer file: {e}")
+
+    try:
+        df1 = read_excel_cols(buf2, engine, STATS_COLS)
+        set_progress(50, "Calculating Statistics...")
+        stats = compute_stats(df1)
+        del df1
+        gc.collect()
+    except Exception as e:
+        set_progress(0, "Idle")
+        logger.error(f"Error processing file: {e}")
+        return render_template("index.html", upload_error=f"Could not process file: {e}")
+
+    set_progress(70, "Generating Charts...")
+    try:
+        df2 = read_excel_cols(buf2, engine, CHART_COLS)
+        charts = compute_charts(df2)
+        del df2, buf2
+        gc.collect()
+    except Exception as e:
+        set_progress(0, "Idle")
+        logger.error(f"Error generating charts: {e}")
+        return render_template("index.html", upload_error=f"Could not build charts: {e}")
+
+    try:
+        # Keep temp file — dashboard date filter will use /r route to re-process
+        # File will be cleaned up on next upload (new tmp replaces old session)
+        pass
+    except OSError as e:
+        logger.warning(f"Temp file note: {e}")
+
+    set_progress(90, "Building Dashboard...")
+
+    hs = stats["health_score"]
+    health_label = ("Excellent" if hs == 100 else "Good" if hs >= 85 else "Fair" if hs >= 50 else "Poor")
+    health_color = ("green" if hs == 100 else "blue" if hs >= 85 else "gold" if hs >= 50 else "red")
+
+    es = stats["error_summary"]
+    critical_count = sum(v["count"] for v in es.values() if v.get("severity") == "critical")
+    warning_count = sum(v["count"] for v in es.values() if v.get("severity") == "warning")
+    total_errors = sum(v["count"] for k, v in es.items() if not k.startswith("0 -"))
+
+    summary_points = []
+    if critical_count > 0:
+        summary_points.append({"type": "critical", "icon": "🔴", "text": f"{critical_count} critical fault event(s) detected."})
+    if warning_count > 0:
+        summary_points.append({"type": "warning", "icon": "🟡", "text": f"{warning_count} warning event(s) logged."})
+    if total_errors == 0:
+        summary_points.append({"type": "ok", "icon": "✅", "text": "Zero fault conditions recorded."})
+    if hs >= 85:
+        summary_points.append({"type": "ok", "icon": "🟢", "text": f"Excellent condition. Health score: {hs}."})
+
+    qf = stats["quality_findings"]
+    stats["pack_count_total"] = int(stats["pack_count_total"])
+    stats["running_time"] = minutes_to_dhm(stats["motor_running_mins"])
+    stats["total_log_time"] = minutes_to_dhm(stats["total_log_mins"])
+    stats["offline_time"] = minutes_to_dhm(stats["offline_mins"])
+    stats["idle_time"] = minutes_to_dhm(stats["motor_idle_mins"])
+    stats["error_time"] = minutes_to_dhm(sum(stats["error_duration_by_code"].values()))
+    stats["no_error_run_time"] = minutes_to_dhm(stats["no_error_running_mins"])
+
+    set_progress(100, "Dashboard Ready!")
+
+    return render_template(
+        "dashboard.html",
+        filename=filename,
+        filter_applied=use_filter,
+        filter_from=min_date,
+        filter_to=max_date,
+        data_min_date=min_date,
+        data_max_date=max_date,
+        **stats,
+        **charts,
+        health_label=health_label, health_color=health_color,
+        critical_count=critical_count, warning_count=warning_count, total_errors=total_errors,
+        summary_points=summary_points,
+        quality_ok=sum(1 for f in qf if f["status"] == "ok"),
+        quality_warn=sum(1 for f in qf if f["status"] == "warn"),
+        quality_miss=sum(1 for f in qf if f["status"] == "missing"),
+    )
 
 
 @app.route("/r", methods=["GET", "POST"])
@@ -649,12 +742,11 @@ def process():
         return render_template("index.html", upload_error=f"Could not build charts: {e}")
 
     try:
-        os.unlink(tmp_path)
-        session.pop("tmp_path", None)
-    except OSError as e:
-        # FIX #6: Specific OSError exception handling for file operations
-        logger.warning(f"Could not delete temp file: {e}")
+        # Keep the temp file — dashboard date filter may need to re-process
+        # Only clean up when user navigates away (new upload replaces it)
         pass
+    except OSError as e:
+        logger.warning(f"Temp file note: {e}")
 
     set_progress(90, "Building Dashboard...")
 
@@ -694,6 +786,8 @@ def process():
         filter_applied=use_filter,
         filter_from=date_from if use_filter else min_date,
         filter_to=date_to if use_filter else max_date,
+        data_min_date=min_date,
+        data_max_date=max_date,
         **stats,
         **charts,
         health_label=health_label, health_color=health_color,
