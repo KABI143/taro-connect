@@ -271,6 +271,71 @@ def compute_durations(df):
     return result
 
 
+def compute_error_events(df):
+    """
+    Build a list of individual error occurrences with:
+      - start_time, end_time, duration_mins
+      - error code + description + severity
+      - voltage / current snapshot at event start
+    """
+    events = []
+    needs = {"QueuedTime-IST", "Error CondMon"}
+    if not needs.issubset(df.columns):
+        return events
+
+    df = df.copy()
+    df["QueuedTime-IST"] = parse_ist_column(df["QueuedTime-IST"])
+    df = df.sort_values("QueuedTime-IST").reset_index(drop=True)
+
+    err_col = pd.to_numeric(df["Error CondMon"], errors="coerce").fillna(0).astype(int)
+
+    # Walk rows and group consecutive rows with the same non-zero error code
+    i = 0
+    n = len(df)
+    while i < n:
+        code = int(err_col.iloc[i])
+        if code == 0:
+            i += 1
+            continue
+
+        # Find run of same code
+        j = i + 1
+        while j < n and int(err_col.iloc[j]) == code:
+            j += 1
+
+        t_start = df["QueuedTime-IST"].iloc[i]
+        t_end   = df["QueuedTime-IST"].iloc[j - 1]
+        dur_mins = max(0, (t_end - t_start).total_seconds() / 60) if pd.notna(t_start) and pd.notna(t_end) else 0
+
+        # Voltage / current snapshot (first row of event)
+        def _snap(col):
+            if col not in df.columns:
+                return None
+            val = pd.to_numeric(df[col].iloc[i], errors="coerce")
+            return round(float(val), 2) if not pd.isna(val) else None
+
+        events.append({
+            "code":      code,
+            "desc":      ERROR_CODES.get(code, "Unknown Error"),
+            "severity":  ("critical" if code in CRITICAL_ERRORS
+                          else "warning" if code in WARNING_ERRORS else "info"),
+            "start":     t_start.strftime("%d %b %Y %H:%M:%S") if pd.notna(t_start) else "—",
+            "end":       t_end.strftime("%d %b %Y %H:%M:%S")   if pd.notna(t_end)   else "—",
+            "duration":  minutes_to_dhm(dur_mins),
+            "dur_mins":  round(dur_mins, 1),
+            "v1":        _snap("Line Voltage"),
+            "v2":        _snap("Line Voltage 2"),
+            "v3":        _snap("Line Voltage 3"),
+            "current":   _snap("Current Amp"),
+        })
+        i = j
+
+    # Sort: critical first, then by start time descending
+    sev_order = {"critical": 0, "warning": 1, "info": 2}
+    events.sort(key=lambda e: (sev_order.get(e["severity"], 3), e["start"]))
+    return events
+
+
 def get_device_running_mins(df):
     if "Total Running Time" not in df.columns:
         return None
@@ -425,6 +490,8 @@ def compute_stats(df):
             continue
     health_score = max(0, min(100, round(score, 1)))
 
+    error_events = compute_error_events(df)
+
     quality_findings = []
     checks = [
         ("Line Voltage","R-Phase Voltage"), ("Line Voltage 2","Y-Phase Voltage"),
@@ -471,6 +538,7 @@ def compute_stats(df):
         no_error_running_mins=no_error_running_mins, offline_mins=offline_mins,
         error_duration_by_code=error_duration_by_code,
         health_score=health_score, quality_findings=quality_findings,
+        error_events=error_events,
     )
 
 
