@@ -914,6 +914,99 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       </table>
     </div>
 
+    <!-- ═══ SECTION: ERROR EVENTS REPORT ═══ -->
+    <div class="section-head">
+      <div class="sh-bar"></div>
+      <div class="sh-title">Error Events Report</div>
+      <div class="sh-line"></div>
+      <div class="sh-tag">Per-Occurrence Fault Log</div>
+    </div>
+
+    <div class="data-table-box" style="overflow:visible;">
+      <div class="dtb-head" style="justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="dtb-dot" style="background:var(--red);"></div>
+          Fault Event Log
+          <span id="errEvtCount" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);background:var(--card);border:1px solid var(--border);border-radius:4px;padding:2px 8px;">
+            {{ error_events|length }} events
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <select id="errEvtFilter" style="padding:5px 10px;border:1px solid var(--border2);border-radius:7px;background:var(--card);color:var(--text);font-size:12px;font-family:'JetBrains Mono',monospace;outline:none;">
+            <option value="all">All Errors</option>
+            <option value="critical">🔴 Critical Only</option>
+            <option value="warning">🟡 Warning Only</option>
+            <option value="4">⚡ High Voltage (4)</option>
+            <option value="2">🔋 Low Voltage (2)</option>
+            <option value="16384">🔌 Power Failure (16384)</option>
+            <option value="32768">〜 Phase Unbalance (32768)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table id="errEvtTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Severity</th>
+              <th>Error Code</th>
+              <th>Description</th>
+              <th>Start Time</th>
+              <th>End Time</th>
+              <th>Duration</th>
+              <th>V-R (V)</th>
+              <th>V-Y (V)</th>
+              <th>V-B (V)</th>
+              <th>Current (A)</th>
+            </tr>
+          </thead>
+          <tbody id="errEvtBody">
+            {% for ev in error_events %}
+            <tr data-sev="{{ ev.severity }}" data-code="{{ ev.code }}">
+              <td class="td-code">{{ loop.index }}</td>
+              <td>
+                {% if ev.severity == 'critical' %}
+                <span class="sev-badge sev-critical">🔴 Critical</span>
+                {% elif ev.severity == 'warning' %}
+                <span class="sev-badge sev-warning">🟡 Warning</span>
+                {% else %}
+                <span class="sev-badge sev-info">ℹ Info</span>
+                {% endif %}
+              </td>
+              <td class="td-code">{{ ev.code }}</td>
+              <td style="font-size:12px;font-weight:600;">{{ ev.desc }}</td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:11px;white-space:nowrap;">{{ ev.start }}</td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:11px;white-space:nowrap;">{{ ev.end }}</td>
+              <td class="td-duration">{{ ev.duration }}</td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--red);">
+                {% if ev.v1 is not none %}{{ ev.v1 }}{% else %}—{% endif %}
+              </td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--gold);">
+                {% if ev.v2 is not none %}{{ ev.v2 }}{% else %}—{% endif %}
+              </td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent);">
+                {% if ev.v3 is not none %}{{ ev.v3 }}{% else %}—{% endif %}
+              </td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--cyan);">
+                {% if ev.current is not none %}{{ ev.current }}{% else %}—{% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="11" style="text-align:center;color:var(--muted);padding:28px;">✅ No error events recorded in this period.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="padding:10px 18px;border-top:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);display:flex;gap:20px;flex-wrap:wrap;">
+        <span>🔴 Critical: Short Circuit, Overload</span>
+        <span>🟡 Warning: Voltage issues, Phase fails, Sensor errors</span>
+        <span>⚡ High Voltage = Error Code 4</span>
+        <span>Voltage snapshot taken at event start row</span>
+      </div>
+    </div>
+
     <!-- ═══ SECTION: ELECTRICAL CHARTS ═══ -->
     <div class="section-head">
       <div class="sh-bar"></div>
@@ -1453,6 +1546,28 @@ filterOverlay.addEventListener('click', closeFilterSidebar);
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeFilterSidebar();
 });
+
+// ── Error Events Filter ────────────────────────────────
+const errFilter = document.getElementById('errEvtFilter');
+if (errFilter) {
+  errFilter.addEventListener('change', function() {
+    const val = this.value;
+    const rows = document.querySelectorAll('#errEvtBody tr[data-sev]');
+    let visible = 0;
+    rows.forEach(row => {
+      const sev  = row.dataset.sev;
+      const code = row.dataset.code;
+      let show = false;
+      if (val === 'all')      show = true;
+      else if (val === 'critical' || val === 'warning') show = (sev === val);
+      else show = (code === val);
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+    const countEl = document.getElementById('errEvtCount');
+    if (countEl) countEl.textContent = visible + ' events';
+  });
+}
 
 // ── Hide loader ────────────────────────────────────────
 window.addEventListener('load', () => {
