@@ -654,7 +654,7 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       <div class="fsb-badge">🔍 Filtered: {{ filter_from }} → {{ filter_to }}</div>
       <hr class="fsb-divider">
       {% endif %}
-      <form method="POST" action="/r" id="dateFilterForm">
+      <form method="POST" action="/filter" id="dateFilterForm">
         <input type="hidden" name="filter_type" id="filterTypeInput" value="range">
         <div style="display:flex;flex-direction:column;gap:18px;">
           <div class="fsb-group">
@@ -693,34 +693,40 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
     </div>
 
     <div class="kpi-grid">
-      <div class="kpi-card gold">
+      <div class="kpi-card gold" onclick="openMotorModal()" style="cursor:pointer;" title="Click to see run details">
         <div class="kpi-label">Start Count</div>
         <div class="kpi-value">{{ start_count }}</div>
-        <div class="kpi-unit">Motor Starts</div>
+        <div class="kpi-unit">Times Started</div>
         <div class="kpi-icon">⚡</div>
       </div>
-      <div class="kpi-card cyan">
+      <div class="kpi-card red" onclick="openMotorModal()" style="cursor:pointer;" title="Click to see run details">
+        <div class="kpi-label">Stop Count</div>
+        <div class="kpi-value">{{ stop_count }}</div>
+        <div class="kpi-unit">Times Stopped</div>
+        <div class="kpi-icon">🛑</div>
+      </div>
+      <div class="kpi-card cyan" onclick="openRuntimeModal()" style="cursor:pointer;" title="Click to see runtime breakdown">
         <div class="kpi-label">Total Running Time</div>
         <div class="kpi-value" style="font-size:20px;letter-spacing:-0.5px;padding-top:4px;">{{ running_time }}</div>
-        <div class="kpi-unit">Cumulative Runtime</div>
+        <div class="kpi-unit">Cumulative Motor Runtime</div>
         <div class="kpi-icon">⏱</div>
       </div>
-      <div class="kpi-card green">
+      <div class="kpi-card green" onclick="openPackModal()" style="cursor:pointer;" title="Click to see packet info">
         <div class="kpi-label">Pack Count</div>
         <div class="kpi-value">{{ pack_count_total }}</div>
-        <div class="kpi-unit">Total Packets</div>
+        <div class="kpi-unit">Total Data Packets</div>
         <div class="kpi-icon">📦</div>
       </div>
-      <div class="kpi-card">
+      <div class="kpi-card" onclick="openVoltageModal()" style="cursor:pointer;" title="Click to see phase-wise voltage">
         <div class="kpi-label">Avg Voltage</div>
-        <div class="kpi-value">{{ avg_voltage_no_fail }}</div>
-        <div class="kpi-unit">V — 3-Phase Avg (Faults Excluded)</div>
+        <div class="kpi-value">{{ avg_voltage_no_fail }} V</div>
+        <div class="kpi-unit">3-Phase Avg (Faults Excluded)</div>
         <div class="kpi-icon">⚡</div>
       </div>
-      <div class="kpi-card red">
+      <div class="kpi-card red" onclick="openCurrentModal()" style="cursor:pointer;" title="Click to see phase-wise current">
         <div class="kpi-label">Avg Current</div>
-        <div class="kpi-value">{{ avg_current }}</div>
-        <div class="kpi-unit">A — 3-Phase Avg</div>
+        <div class="kpi-value">{{ avg_current }} A</div>
+        <div class="kpi-unit">3-Phase Avg (Motor ON)</div>
         <div class="kpi-icon">〜</div>
       </div>
     </div>
@@ -1573,6 +1579,359 @@ if (errFilter) {
 window.addEventListener('load', () => {
   document.getElementById('pageLoader').style.display = 'none';
 });
+</script>
+
+<!-- ═══ MOTOR EVENTS MODAL ═══ -->
+<div id="motorModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);overflow-y:auto;" onclick="if(event.target===this)closeMotorModal()">
+  <div style="margin:40px auto;max-width:950px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.3);">
+
+    <!-- Modal Header -->
+    <div style="background:linear-gradient(135deg,var(--card2),var(--card));padding:24px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Motor Run Log</div>
+        <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:800;color:var(--text);">Start / Stop Details</div>
+      </div>
+      <div style="display:flex;gap:16px;align-items:center;">
+        <div style="text-align:center;">
+          <div style="font-size:28px;font-weight:800;color:var(--gold);">{{ start_count }}</div>
+          <div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;">Starts</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:28px;font-weight:800;color:var(--red);">{{ stop_count }}</div>
+          <div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;">Stops</div>
+        </div>
+        <button onclick="closeMotorModal()" style="background:var(--card);border:1px solid var(--border2);color:var(--muted);width:36px;height:36px;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin-left:8px;">&times;</button>
+      </div>
+    </div>
+
+    <!-- Search / Filter bar -->
+    <div style="padding:16px 28px;background:var(--card);border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:center;">
+      <input id="motorSearch" type="text" placeholder="🔍  Search by date, duration, error…" oninput="filterMotorTable()" style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:8px 14px;color:var(--text);font-size:13px;outline:none;">
+      <label style="display:flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;cursor:pointer;white-space:nowrap;">
+        <input type="checkbox" id="errorOnly" onchange="filterMotorTable()" style="accent-color:var(--red);"> Errors only
+      </label>
+    </div>
+
+    <!-- Table -->
+    <div style="overflow-x:auto;max-height:480px;overflow-y:auto;">
+      <table id="motorTable" style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead style="position:sticky;top:0;background:var(--surface);z-index:2;">
+          <tr style="border-bottom:2px solid var(--border);">
+            <th style="padding:12px 16px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;width:50px;">#</th>
+            <th style="padding:12px 16px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;">Start Time</th>
+            <th style="padding:12px 16px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;">Stop Time</th>
+            <th style="padding:12px 16px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;">Duration</th>
+            <th style="padding:12px 16px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;">Error During Run</th>
+          </tr>
+        </thead>
+        <tbody id="motorTableBody">
+          {% if motor_events %}
+            {% for ev in motor_events %}
+            <tr class="motor-row {% if ev.has_error %}has-error{% endif %}" style="border-bottom:1px solid var(--border);transition:background 0.15s;" onmouseover="this.style.background='var(--card2)'" onmouseout="this.style.background=''">
+              <td style="padding:12px 16px;color:var(--muted);font-family:'JetBrains Mono',monospace;">{{ ev.num }}</td>
+              <td style="padding:12px 16px;">
+                <span style="display:inline-flex;align-items:center;gap:6px;">
+                  <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0;"></span>
+                  <span style="color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;">{{ ev.start }}</span>
+                </span>
+              </td>
+              <td style="padding:12px 16px;">
+                <span style="display:inline-flex;align-items:center;gap:6px;">
+                  {% if ev.stop == "Still Running ▶" %}
+                    <span style="width:8px;height:8px;border-radius:50%;background:var(--gold);display:inline-block;flex-shrink:0;animation:pulse 1.5s infinite;"></span>
+                    <span style="color:var(--gold);font-family:'JetBrains Mono',monospace;font-size:12px;">Still Running ▶</span>
+                  {% else %}
+                    <span style="width:8px;height:8px;border-radius:50%;background:var(--red);display:inline-block;flex-shrink:0;"></span>
+                    <span style="color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;">{{ ev.stop }}</span>
+                  {% endif %}
+                </span>
+              </td>
+              <td style="padding:12px 16px;">
+                <span style="background:rgba(8,145,178,0.12);color:var(--cyan);padding:4px 10px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;">{{ ev.duration }}</span>
+              </td>
+              <td style="padding:12px 16px;">
+                {% if ev.errors %}
+                  <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                    {% for err in ev.errors %}
+                      <span style="background:rgba(220,38,38,0.1);color:var(--red);border:1px solid rgba(220,38,38,0.3);padding:2px 8px;border-radius:4px;font-size:11px;font-family:'JetBrains Mono',monospace;">⚠ {{ err }}</span>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <span style="color:var(--green);font-size:12px;">✓ No Error</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr><td colspan="5" style="text-align:center;padding:48px;color:var(--muted);">No motor run data available</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:16px 28px;background:var(--card);border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+      <span id="motorRowCount" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);"></span>
+      <button onclick="closeMotorModal()" style="background:var(--card2);border:1px solid var(--border2);color:var(--muted);padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ RUNTIME MODAL ═══ -->
+<div id="runtimeModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);overflow-y:auto;" onclick="if(event.target===this)closeRuntimeModal()">
+  <div style="margin:40px auto;max-width:700px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.3);">
+    <div style="background:linear-gradient(135deg,var(--card2),var(--card));padding:24px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Time Breakdown</div>
+        <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:800;color:var(--text);">Total Running Time</div>
+      </div>
+      <button onclick="closeRuntimeModal()" style="background:var(--card);border:1px solid var(--border2);color:var(--muted);width:36px;height:36px;border-radius:8px;font-size:18px;cursor:pointer;">&times;</button>
+    </div>
+    <div style="padding:28px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;">
+          <div style="font-size:10px;letter-spacing:2px;color:var(--cyan);text-transform:uppercase;margin-bottom:8px;">⏱ Motor Running</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace;">{{ running_time }}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Total ON time</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;">
+          <div style="font-size:10px;letter-spacing:2px;color:var(--green);text-transform:uppercase;margin-bottom:8px;">✅ Clean Runtime</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace;">{{ no_error_run_time }}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Running without errors</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;">
+          <div style="font-size:10px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;margin-bottom:8px;">💤 Idle Time</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace;">{{ idle_time }}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Motor OFF, no error</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;">
+          <div style="font-size:10px;letter-spacing:2px;color:var(--red);text-transform:uppercase;margin-bottom:8px;">⚠ Error Time</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace;">{{ error_time }}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Time with active faults</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;">
+          <div style="font-size:10px;letter-spacing:2px;color:var(--purple);text-transform:uppercase;margin-bottom:8px;">📋 Total Log Time</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace;">{{ total_log_time }}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Total logged duration</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;">
+          <div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">📡 Offline Time</div>
+          <div style="font-size:18px;font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace;">{{ offline_time }}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">Gap &gt; 3 min (no signal)</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:16px 28px;background:var(--card);border-top:1px solid var(--border);text-align:right;">
+      <button onclick="closeRuntimeModal()" style="background:var(--card2);border:1px solid var(--border2);color:var(--muted);padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ PACK COUNT MODAL ═══ -->
+<div id="packModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);overflow-y:auto;" onclick="if(event.target===this)closePackModal()">
+  <div style="margin:40px auto;max-width:600px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.3);">
+    <div style="background:linear-gradient(135deg,var(--card2),var(--card));padding:24px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Telemetry Packets</div>
+        <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:800;color:var(--text);">Pack Count Details</div>
+      </div>
+      <button onclick="closePackModal()" style="background:var(--card);border:1px solid var(--border2);color:var(--muted);width:36px;height:36px;border-radius:8px;font-size:18px;cursor:pointer;">&times;</button>
+    </div>
+    <div style="padding:28px;display:flex;flex-direction:column;gap:16px;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;text-align:center;">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--green);text-transform:uppercase;margin-bottom:10px;">📦 Total Packets Received</div>
+        <div style="font-size:48px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace;">{{ pack_count_total }}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:6px;">Incremental count from data log</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--cyan);text-transform:uppercase;margin-bottom:10px;">📡 Network Type</div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:var(--cyan);font-family:'JetBrains Mono',monospace;">{{ network_pct_4g }}%</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">4G Packets</div>
+          </div>
+          <div style="width:1px;background:var(--border2);height:50px;"></div>
+          <div style="flex:1;text-align:center;">
+            <div style="font-size:28px;font-weight:800;color:var(--purple);font-family:'JetBrains Mono',monospace;">{{ (100 - network_pct_4g)|round(1) }}%</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px;">2G Packets</div>
+          </div>
+        </div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;">
+        <div style="font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;">📊 Total Data Rows</div>
+        <div style="font-size:28px;font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace;">{{ total_rows }}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Records in uploaded file</div>
+      </div>
+    </div>
+    <div style="padding:16px 28px;background:var(--card);border-top:1px solid var(--border);text-align:right;">
+      <button onclick="closePackModal()" style="background:var(--card2);border:1px solid var(--border2);color:var(--muted);padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ VOLTAGE MODAL ═══ -->
+<div id="voltageModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);overflow-y:auto;" onclick="if(event.target===this)closeVoltageModal()">
+  <div style="margin:40px auto;max-width:700px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.3);">
+    <div style="background:linear-gradient(135deg,var(--card2),var(--card));padding:24px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Phase-wise Breakdown</div>
+        <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:800;color:var(--text);">⚡ Voltage Details</div>
+      </div>
+      <button onclick="closeVoltageModal()" style="background:var(--card);border:1px solid var(--border2);color:var(--muted);width:36px;height:36px;border-radius:8px;font-size:18px;cursor:pointer;">&times;</button>
+    </div>
+    <div style="padding:28px;">
+      <div style="background:var(--card2);border:1px solid var(--gold);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:10px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;">Overall 3-Phase Avg (Faults Excluded)</div>
+          <div style="font-size:32px;font-weight:800;color:var(--gold);font-family:'JetBrains Mono',monospace;margin-top:4px;">{{ avg_voltage_no_fail }} V</div>
+        </div>
+        <div style="font-size:36px;">⚡</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border);">
+            <th style="padding:10px 14px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;">Phase</th>
+            <th style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--green);text-transform:uppercase;">Min (V)</th>
+            <th style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;">Avg (V)</th>
+            <th style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--red);text-transform:uppercase;">Max (V)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:14px;color:var(--text);font-weight:600;">R-Phase (V1)</td>
+            <td style="padding:14px;text-align:right;color:var(--green);font-family:'JetBrains Mono',monospace;">{{ v1_min }}</td>
+            <td style="padding:14px;text-align:right;color:var(--gold);font-family:'JetBrains Mono',monospace;font-weight:700;">{{ v1_avg }}</td>
+            <td style="padding:14px;text-align:right;color:var(--red);font-family:'JetBrains Mono',monospace;">{{ v1_max }}</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:14px;color:var(--text);font-weight:600;">Y-Phase (V2)</td>
+            <td style="padding:14px;text-align:right;color:var(--green);font-family:'JetBrains Mono',monospace;">{{ v2_min }}</td>
+            <td style="padding:14px;text-align:right;color:var(--gold);font-family:'JetBrains Mono',monospace;font-weight:700;">{{ v2_avg }}</td>
+            <td style="padding:14px;text-align:right;color:var(--red);font-family:'JetBrains Mono',monospace;">{{ v2_max }}</td>
+          </tr>
+          <tr>
+            <td style="padding:14px;color:var(--text);font-weight:600;">B-Phase (V3)</td>
+            <td style="padding:14px;text-align:right;color:var(--green);font-family:'JetBrains Mono',monospace;">{{ v3_min }}</td>
+            <td style="padding:14px;text-align:right;color:var(--gold);font-family:'JetBrains Mono',monospace;font-weight:700;">{{ v3_avg }}</td>
+            <td style="padding:14px;text-align:right;color:var(--red);font-family:'JetBrains Mono',monospace;">{{ v3_max }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:16px 28px;background:var(--card);border-top:1px solid var(--border);text-align:right;">
+      <button onclick="closeVoltageModal()" style="background:var(--card2);border:1px solid var(--border2);color:var(--muted);padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CURRENT MODAL ═══ -->
+<div id="currentModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);overflow-y:auto;" onclick="if(event.target===this)closeCurrentModal()">
+  <div style="margin:40px auto;max-width:700px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.3);">
+    <div style="background:linear-gradient(135deg,var(--card2),var(--card));padding:24px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Phase-wise Breakdown</div>
+        <div style="font-family:'Inter',sans-serif;font-size:22px;font-weight:800;color:var(--text);">〜 Current Details</div>
+      </div>
+      <button onclick="closeCurrentModal()" style="background:var(--card);border:1px solid var(--border2);color:var(--muted);width:36px;height:36px;border-radius:8px;font-size:18px;cursor:pointer;">&times;</button>
+    </div>
+    <div style="padding:28px;">
+      <div style="background:var(--card2);border:1px solid var(--red);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-size:10px;letter-spacing:2px;color:var(--red);text-transform:uppercase;">Overall 3-Phase Avg (Motor ON)</div>
+          <div style="font-size:32px;font-weight:800;color:var(--red);font-family:'JetBrains Mono',monospace;margin-top:4px;">{{ avg_current }} A</div>
+        </div>
+        <div style="font-size:36px;">〜</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:2px solid var(--border);">
+            <th style="padding:10px 14px;text-align:left;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;">Phase</th>
+            <th style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--green);text-transform:uppercase;">Min (A)</th>
+            <th style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--gold);text-transform:uppercase;">Avg (A)</th>
+            <th style="padding:10px 14px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--red);text-transform:uppercase;">Max (A)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:14px;color:var(--text);font-weight:600;">R-Phase (C1)</td>
+            <td style="padding:14px;text-align:right;color:var(--green);font-family:'JetBrains Mono',monospace;">{{ c1_min }}</td>
+            <td style="padding:14px;text-align:right;color:var(--gold);font-family:'JetBrains Mono',monospace;font-weight:700;">{{ c1_avg }}</td>
+            <td style="padding:14px;text-align:right;color:var(--red);font-family:'JetBrains Mono',monospace;">{{ c1_max }}</td>
+          </tr>
+          <tr style="border-bottom:1px solid var(--border);">
+            <td style="padding:14px;color:var(--text);font-weight:600;">Y-Phase (C2)</td>
+            <td style="padding:14px;text-align:right;color:var(--green);font-family:'JetBrains Mono',monospace;">{{ c2_min }}</td>
+            <td style="padding:14px;text-align:right;color:var(--gold);font-family:'JetBrains Mono',monospace;font-weight:700;">{{ c2_avg }}</td>
+            <td style="padding:14px;text-align:right;color:var(--red);font-family:'JetBrains Mono',monospace;">{{ c2_max }}</td>
+          </tr>
+          <tr>
+            <td style="padding:14px;color:var(--text);font-weight:600;">B-Phase (C3)</td>
+            <td style="padding:14px;text-align:right;color:var(--green);font-family:'JetBrains Mono',monospace;">{{ c3_min }}</td>
+            <td style="padding:14px;text-align:right;color:var(--gold);font-family:'JetBrains Mono',monospace;font-weight:700;">{{ c3_avg }}</td>
+            <td style="padding:14px;text-align:right;color:var(--red);font-family:'JetBrains Mono',monospace;">{{ c3_max }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:14px;padding:12px 16px;background:var(--card2);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--muted);">
+        ℹ️ Current values calculated only during Motor ON periods
+      </div>
+    </div>
+    <div style="padding:16px 28px;background:var(--card);border-top:1px solid var(--border);text-align:right;">
+      <button onclick="closeCurrentModal()" style="background:var(--card2);border:1px solid var(--border2);color:var(--muted);padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">Close</button>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+</style>
+
+<script>
+function openMotorModal() {
+  document.getElementById('motorModal').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  updateMotorRowCount();
+}
+function closeMotorModal() {
+  document.getElementById('motorModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+function filterMotorTable() {
+  const q = document.getElementById('motorSearch').value.toLowerCase();
+  const errOnly = document.getElementById('errorOnly').checked;
+  const rows = document.querySelectorAll('#motorTableBody tr.motor-row');
+  rows.forEach(r => {
+    const txt = r.textContent.toLowerCase();
+    const hasErr = r.classList.contains('has-error');
+    const matchQ = !q || txt.includes(q);
+    const matchE = !errOnly || hasErr;
+    r.style.display = matchQ && matchE ? '' : 'none';
+  });
+  updateMotorRowCount();
+}
+function updateMotorRowCount() {
+  const rows = document.querySelectorAll('#motorTableBody tr.motor-row');
+  const visible = [...rows].filter(r => r.style.display !== 'none').length;
+  document.getElementById('motorRowCount').textContent = `Showing ${visible} of ${rows.length} runs`;
+}
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape') {
+    closeMotorModal();
+    closeRuntimeModal();
+    closePackModal();
+    closeVoltageModal();
+    closeCurrentModal();
+  }
+});
+
+function openRuntimeModal() { document.getElementById('runtimeModal').style.display='block'; document.body.style.overflow='hidden'; }
+function closeRuntimeModal() { document.getElementById('runtimeModal').style.display='none'; document.body.style.overflow=''; }
+function openPackModal() { document.getElementById('packModal').style.display='block'; document.body.style.overflow='hidden'; }
+function closePackModal() { document.getElementById('packModal').style.display='none'; document.body.style.overflow=''; }
+function openVoltageModal() { document.getElementById('voltageModal').style.display='block'; document.body.style.overflow='hidden'; }
+function closeVoltageModal() { document.getElementById('voltageModal').style.display='none'; document.body.style.overflow=''; }
+function openCurrentModal() { document.getElementById('currentModal').style.display='block'; document.body.style.overflow='hidden'; }
+function closeCurrentModal() { document.getElementById('currentModal').style.display='none'; document.body.style.overflow=''; }
 </script>
 </body>
 </html>
