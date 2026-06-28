@@ -837,13 +837,24 @@ def compute_charts(df):
         }
 
 
-@app.route("/")
+@app.route("/", methods=["GET", "POST"])
 def index():
+    if request.method == "POST":
+        # Safety redirect: if someone POSTs to "/" (e.g. old cached page),
+        # forward them to the correct /upload endpoint.
+        from werkzeug.exceptions import MethodNotAllowed
+        return upload()
     return render_template("index.html")
 
 
 @app.route("/api/progress", methods=["GET"])
 def get_progress():
+    return jsonify(progress_data)
+
+
+@app.route("/progress", methods=["GET"])
+def get_progress_alias():
+    """Alias for /api/progress — handles old cached frontend pages."""
     return jsonify(progress_data)
 
 
