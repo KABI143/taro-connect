@@ -13,21 +13,21 @@
    LIGHT THEME (default)
 ═══════════════════════════════════ */
 :root {
-  --bg:      #f0f4fa;
+  --bg:      #ffffff;
   --surface: #ffffff;
-  --card:    #f8fafd;
-  --card2:   #f2f5fb;
-  --border:  #e2e8f2;
-  --border2: #ccd5e8;
-  --accent:  #3b7ef8;
-  --accent2: #6d28d9;
-  --gold:    #d97706;
-  --green:   #059669;
-  --red:     #dc2626;
+  --card:    #fbfcff;
+  --card2:   #f3f6fc;
+  --border:  #dbe3f0;
+  --border2: #b9c6e0;
+  --accent:  #1d5ff0;
+  --accent2: #7c3aed;
+  --gold:    #c2660a;
+  --green:   #009966;
+  --red:     #e02424;
   --cyan:    #0891b2;
-  --purple:  #7c3aed;
-  --text:    #1e2d4a;
-  --muted:   #7a8fb0;
+  --purple:  #8b3ff5;
+  --text:    #060f24;
+  --muted:   #6b7fa3;
 }
 
 /* ═══════════════════════════════════
@@ -61,8 +61,8 @@ body {
 body::before {
   content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
   background:
-    radial-gradient(ellipse 900px 500px at 20% 0%,  rgba(59,126,248,0.04) 0%, transparent 60%),
-    radial-gradient(ellipse 600px 400px at 90% 100%, rgba(109,40,217,0.03) 0%, transparent 60%);
+    radial-gradient(ellipse 900px 500px at 20% 0%,  rgba(59,126,248,0.015) 0%, transparent 60%),
+    radial-gradient(ellipse 600px 400px at 90% 100%, rgba(109,40,217,0.012) 0%, transparent 60%);
 }
 
 /* ── PAGE LOADER ── */
@@ -1271,22 +1271,41 @@ table tr:hover td { background:rgba(59,126,248,0.025); }
       </div>
     </div>
 
-    <!-- Duration Visual Bar -->
+    <!-- Duration Visual Bar — Day-wise -->
     <div class="data-table-box" style="margin-top:16px;">
-      <div class="dtb-head"><div class="dtb-dot" style="background:var(--accent);"></div>Duration Breakdown — Proportional View</div>
+      <div class="dtb-head"><div class="dtb-dot" style="background:var(--accent);"></div>Duration Breakdown — Proportional View (Day-wise)</div>
       <div style="padding:20px;">
-        <div style="display:flex; height:32px; border-radius:8px; overflow:hidden; gap:2px;">
-          {% set total_m = total_log_mins if total_log_mins > 0 else 1 %}
-          <div title="Motor Running (No Error): {{ no_error_run_time }}"
-               style="background:var(--green); flex:{{ no_error_running_mins / total_m }}; min-width:2px; transition:flex 1s; border-radius:4px;"></div>
-          <div title="Error Running: {{ error_time }}"
-               style="background:var(--red); flex:{{ error_running_mins / total_m }}; min-width:{% if error_running_mins > 0 %}2{% else %}0{% endif %}px; transition:flex 1s; border-radius:4px;"></div>
-          <div title="Motor Idle: {{ idle_time }}"
-               style="background:var(--cyan); opacity:0.6; flex:{{ motor_idle_mins / total_m }}; min-width:2px; transition:flex 1s; border-radius:4px;"></div>
-          <div title="Device Offline: {{ offline_time }}"
-               style="background:var(--muted); opacity:0.4; flex:{{ offline_mins / total_m }}; min-width:{% if offline_mins > 0 %}2{% else %}0{% endif %}px; transition:flex 1s; border-radius:4px;"></div>
+
+        {% if daily_duration_breakdown %}
+        {% for day in daily_duration_breakdown %}
+        <div style="margin-bottom:{% if not loop.last %}22px{% else %}4px{% endif %};">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; color:var(--text);">📅 {{ day.date }}</span>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted);">Total: {{ day.total_time }}</span>
+          </div>
+          <div style="display:flex; height:28px; border-radius:8px; overflow:hidden; gap:2px;">
+            <div title="Motor Running (No Error): {{ day.no_error_run_time }}"
+                 style="background:var(--green); flex:{{ day.running_frac }}; min-width:{% if day.no_error_running_mins > 0 %}2{% else %}0{% endif %}px; transition:flex 1s; border-radius:4px;"></div>
+            <div title="Error Running: {{ day.error_time }}"
+                 style="background:var(--red); flex:{{ day.error_frac }}; min-width:{% if day.error_running_mins > 0 %}2{% else %}0{% endif %}px; transition:flex 1s; border-radius:4px;"></div>
+            <div title="Motor Idle: {{ day.idle_time }}"
+                 style="background:var(--cyan); opacity:0.6; flex:{{ day.idle_frac }}; min-width:{% if day.motor_idle_mins > 0 %}2{% else %}0{% endif %}px; transition:flex 1s; border-radius:4px;"></div>
+            <div title="Device Offline: {{ day.offline_time }}"
+                 style="background:var(--muted); opacity:0.4; flex:{{ day.offline_frac }}; min-width:{% if day.offline_mins > 0 %}2{% else %}0{% endif %}px; transition:flex 1s; border-radius:4px;"></div>
+          </div>
+          <div style="display:flex; gap:16px; margin-top:6px; flex-wrap:wrap;">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--green);">● Run {{ day.no_error_run_time }}</span>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--red);">● Err {{ day.error_time }}</span>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--cyan);">● Idle {{ day.idle_time }}</span>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted);">● Offline {{ day.offline_time }}</span>
+          </div>
         </div>
-        <div style="display:flex; gap:24px; margin-top:12px; flex-wrap:wrap;">
+        {% endfor %}
+        {% else %}
+        <div class="no-data-msg">No day-wise duration data available</div>
+        {% endif %}
+
+        <div style="display:flex; gap:24px; margin-top:16px; padding-top:16px; border-top:1px solid var(--border); flex-wrap:wrap;">
           <div style="display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">
             <span style="width:12px;height:12px;border-radius:3px;background:var(--green);display:inline-block;"></span>Running (No Error)
           </div>
