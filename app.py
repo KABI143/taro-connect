@@ -374,6 +374,98 @@ def compute_durations(df):
         return result
 
 
+# ═══════════════════════════════════════════════════════
+# Day-wise Duration Breakdown
+#   - Same logic as compute_durations, but bucketed by
+#     calendar day (IST) so the "Proportional View" bar can
+#     be rendered once per day instead of one aggregate bar.
+# ═══════════════════════════════════════════════════════
+def compute_daily_duration_breakdown(df):
+    days = []
+
+    needs = {"QueuedTime-IST", "MotorRunningStatus", "Error CondMon"}
+    if not needs.issubset(df.columns):
+        logger.warning(f"Missing columns for daily duration breakdown: {needs - set(df.columns)}")
+        return days
+
+    try:
+        df = df.copy()
+        df["QueuedTime-IST"] = parse_ist_column(df["QueuedTime-IST"])
+        df = df.sort_values("QueuedTime-IST").reset_index(drop=True)
+
+        ts = df["QueuedTime-IST"]
+        motor = (df["MotorRunningStatus"]
+                 .astype(str).str.strip().str.upper()
+                 .isin(["1", "TRUE", "YES", "ON"]))
+        err = pd.to_numeric(df["Error CondMon"], errors="coerce").fillna(0).astype(int)
+
+        # date_key -> accumulator dict
+        by_day = {}
+
+        for i in range(len(df) - 1):
+            t1, t2 = ts.iloc[i], ts.iloc[i + 1]
+            if pd.isna(t1) or pd.isna(t2):
+                continue
+            diff = (t2 - t1).total_seconds() / 60
+            if diff <= 0:
+                continue
+
+            day_key = t1.date()
+            bucket = by_day.setdefault(day_key, {
+                "no_error_running_mins": 0.0,
+                "error_running_mins": 0.0,
+                "motor_idle_mins": 0.0,
+                "offline_mins": 0.0,
+                "total_mins": 0.0,
+            })
+
+            if diff > OFFLINE_GAP_MINUTES:
+                bucket["offline_mins"] += diff
+                bucket["total_mins"] += diff
+                continue
+
+            bucket["total_mins"] += diff
+            is_running = bool(motor.iloc[i])
+            err_code = int(err.iloc[i])
+
+            if is_running:
+                if err_code != 0:
+                    bucket["error_running_mins"] += diff
+                else:
+                    bucket["no_error_running_mins"] += diff
+            else:
+                if err_code == 0:
+                    bucket["motor_idle_mins"] += diff
+
+        for day_key in sorted(by_day.keys()):
+            b = by_day[day_key]
+            total_m = b["total_mins"] if b["total_mins"] > 0 else 1
+            days.append({
+                "date": day_key.strftime("%d %b %Y"),
+                "no_error_running_mins": round(b["no_error_running_mins"], 1),
+                "error_running_mins": round(b["error_running_mins"], 1),
+                "motor_idle_mins": round(b["motor_idle_mins"], 1),
+                "offline_mins": round(b["offline_mins"], 1),
+                "total_mins": round(b["total_mins"], 1),
+                "no_error_run_time": minutes_to_dhm(b["no_error_running_mins"]),
+                "error_time": minutes_to_dhm(b["error_running_mins"]),
+                "idle_time": minutes_to_dhm(b["motor_idle_mins"]),
+                "offline_time": minutes_to_dhm(b["offline_mins"]),
+                "total_time": minutes_to_dhm(b["total_mins"]),
+                "running_frac": b["no_error_running_mins"] / total_m,
+                "error_frac": b["error_running_mins"] / total_m,
+                "idle_frac": b["motor_idle_mins"] / total_m,
+                "offline_frac": b["offline_mins"] / total_m,
+            })
+
+        logger.info(f"Daily duration breakdown computed for {len(days)} day(s)")
+        return days
+
+    except Exception as e:
+        logger.error(f"Daily duration breakdown failed: {e}")
+        return days
+
+
 def compute_error_events(df):
     events = []
     needs = {"QueuedTime-IST", "Error CondMon"}
@@ -606,6 +698,7 @@ def compute_stats(df):
                     continue
 
         dur = compute_durations(df)
+        stats["daily_duration_breakdown"] = compute_daily_duration_breakdown(df)
 
         stats["total_log_mins"] = dur["total_log_mins"]
         stats["motor_idle_mins"] = dur["motor_idle_mins"]
@@ -837,24 +930,13 @@ def compute_charts(df):
         }
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/")
 def index():
-    if request.method == "POST":
-        # Safety redirect: if someone POSTs to "/" (e.g. old cached page),
-        # forward them to the correct /upload endpoint.
-        from werkzeug.exceptions import MethodNotAllowed
-        return upload()
     return render_template("index.html")
 
 
 @app.route("/api/progress", methods=["GET"])
 def get_progress():
-    return jsonify(progress_data)
-
-
-@app.route("/progress", methods=["GET"])
-def get_progress_alias():
-    """Alias for /api/progress — handles old cached frontend pages."""
     return jsonify(progress_data)
 
 
