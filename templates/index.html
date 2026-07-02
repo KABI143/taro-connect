@@ -176,7 +176,7 @@ body::after{content:'';position:fixed;inset:0;
         </div>
       </div>
 
-      <form id="uploadForm" action="/" method="post" enctype="multipart/form-data">
+      <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
         <div class="upload-zone" id="dropZone">
           <input type="file" id="fileInput" name="file" accept=".xlsx,.xls" required>
           <div class="upload-icon">📂</div>
@@ -300,7 +300,7 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
 
   // Poll server for real progress
   const pollInterval = setInterval(() => {
-    fetch('/progress')
+    fetch('/api/progress')
       .then(r => r.json())
       .then(data => {
         targetPct = data.percent || 0;
